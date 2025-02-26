@@ -22,7 +22,7 @@ setup(
     ],
     python_requires=">=3.8",
     install_requires=[
-        "CoolProp>=6.4.1",
+        "CoolProp>=6.7.0",
     ],
     include_package_data=True,
     package_data={
