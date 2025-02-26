@@ -1,7 +1,7 @@
 # CoolProp Object-Oriented Wrapper
 
 [![Python Package](https://github.com/ryancoxrbc/coolprop_oop/actions/workflows/python-package.yml/badge.svg)](https://github.com/ryancoxrbc/coolprop_oop/actions/workflows/python-package.yml)
-[![PyPI version](https://badge.fury.io/py/coolprop-oop.svg)](https://badge.fury.io/py/coolprop_oop)
+[![PyPI version](https://badge.fury.io/py/coolprop-oop.svg)](https://badge.fury.io/py/coolprop-oop)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 An object-oriented wrapper for CoolProp thermodynamic properties that makes working with thermodynamic states simpler and more intuitive.
