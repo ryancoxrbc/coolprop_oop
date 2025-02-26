@@ -11,7 +11,7 @@ setup(
     description="Object-oriented wrapper for CoolProp thermodynamic properties",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/ryancoxrbc/coolprop-oop",
+    url="https://github.com/ryancoxrbc/coolprop_oop",
     packages=find_packages(),
     classifiers=[
         "Programming Language :: Python :: 3",
