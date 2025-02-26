@@ -7,7 +7,7 @@ setup(
     name="coolprop-oop",
     version="0.1.0",
     author="Ryan Cox",
-    author_email="your.email@example.com",
+    author_email="ryanbradleycox@gmail.com",
     description="Object-oriented wrapper for CoolProp thermodynamic properties",
     long_description=long_description,
     long_description_content_type="text/markdown",
