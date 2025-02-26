@@ -17,7 +17,7 @@ An object-oriented wrapper for CoolProp thermodynamic properties that makes work
 ## Installation
 
 ```bash
-pip install coolprop_oop
+pip install coolprop-oop
 ```
 
 ## Usage
