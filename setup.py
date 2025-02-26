@@ -20,7 +20,7 @@ setup(
         "Topic :: Scientific/Engineering :: Physics",
         "Topic :: Scientific/Engineering :: Chemistry",
     ],
-    python_requires=">=3.6",
+    python_requires=">=3.8",
     install_requires=[
         "CoolProp>=6.4.1",
     ],
