@@ -15,8 +15,16 @@ def state_setter_HA(func):
         if not hasattr(self, '_constraints_set'):
             self._constraints_set = set()
         
-        # Allow setting if we have 0, 1, or 2 constraints
-        if len(self._constraints_set) < 3:
+        # Allow setting if we have 0 or 1 constraint
+        if len(self._constraints_set) < 2:
+            func(self, value)
+            self._constraints_set.add(prop_name)
+            return
+            
+        # If we have 2 constraints, test validity before adding third
+        if len(self._constraints_set) == 2:
+            if not self.test_state_validity(self._constraints_set, prop_name, value):
+                raise ValueError(f"Cannot set {prop_name} - the combination of properties would create an invalid state.")
             func(self, value)
             self._constraints_set.add(prop_name)
             return
@@ -26,6 +34,11 @@ def state_setter_HA(func):
             if prop_name not in self._constraints_set:
                 raise ValueError(f"Cannot set {prop_name} - system is already fully constrained. "
                                "Setting this property would overconstrain the state.")
+            # Create a set of the other two properties (excluding the one being updated)
+            other_props = self._constraints_set - {prop_name}
+            # Test if the new value creates a valid state with the other two properties
+            if not self.test_state_validity(other_props, prop_name, value):
+                raise ValueError(f"Cannot set {prop_name} - the new value would create an invalid state.")
             func(self, value)
             return
             
@@ -46,9 +59,14 @@ def unsettable_property(func):
     return wrapper
 
 
-def test_state_validity(self):
+def test_state_validity(self, current_props, new_prop, new_value):
     """
     Test if the current state properties are physically valid using HAPropsSI.
+    
+    Args:
+        current_props (set): Set of currently set property names
+        new_prop (str): Name of the new property being set
+        new_value (float): Value of the new property
     
     Returns:
         bool: True if the state is valid, False otherwise.
