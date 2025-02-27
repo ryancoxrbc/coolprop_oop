@@ -79,7 +79,7 @@ def cached_property(func):
     Otherwise, checks if the cached value is from the current state version before returning it.
     If not current, recalculates the property and updates the cache.
     """
-    def wrapper(self):
+    def getter(self):
         prop_name = func.__name__
         version_attr = f"_{prop_name}_version"
         value_attr = f"_{prop_name}"
@@ -105,7 +105,7 @@ def cached_property(func):
         
         return getattr(self, value_attr)
     
-    return wrapper
+    return property(getter)  # Return a property object instead of the wrapper function
 
 class StateHA:
     """
