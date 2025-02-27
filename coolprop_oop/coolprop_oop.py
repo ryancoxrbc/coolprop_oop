@@ -359,8 +359,9 @@ class StateHA:
             new_value_converted = new_value + 273.15 if new_prop == 'tempc' else new_value
             test_props.extend([coolprop_new_prop, new_value_converted])
             
-            # Try to calculate any property (e.g., enthalpy) with these inputs
-            HAPropsSI('H', *test_props)
+            # Try to calculate one of the input properties to validate state
+            input_prop = self._prop_map[list(current_props)[0]]  # Use first property from current set
+            HAPropsSI(input_prop, *test_props)
             return True
             
         except ValueError as e:
