@@ -1,5 +1,64 @@
 from CoolProp.CoolProp import HAPropsSI, PropsSI
 
+def state_setter_HA(func):
+    """
+    Decorator for property setters that manages state constraints for humid air properties.
+    
+    Checks the degrees of freedom and version before allowing property to be set.
+    Prevents overconstraining the system while allowing property updates when version changes.
+    Also tracks which properties have been set for state validation.
+    """
+    def wrapper(self, value):
+        prop_name = func.__name__.replace('_setter', '')
+        
+        # Allow setting if DOF is None (initial state) or 1 (needs one more property)
+        if self._dof is None or self._dof in [1,2]:
+            # Initialize constraints set if not exists
+            if not hasattr(self, '_constraints_set'):
+                self._constraints_set = set()
+            
+            func(self, value)
+            # Add property to constraints set
+            self._constraints_set.add(prop_name)
+            return
+            
+        # If DOF is 3 (fully constrained), only allow if property wasn't previously set
+        # or if version number changed
+        if self._dof == 3:
+            if hasattr(self, f'_{prop_name}') and self._version == getattr(self, '_version'):
+                raise ValueError(f"Cannot set {prop_name} - state is already fully constrained. "
+                               "Clear state first.")
+            func(self, value)
+            self._constraints_set.add(prop_name)
+            return
+            
+    return wrapper
+
+def unsettable_property(func):
+    """
+    Decorator for properties that should not be settable.
+    
+    Raises an AttributeError if an attempt is made to set the property.
+    Used for properties that are calculated from other state variables and
+    should not be directly set.
+    """
+    def wrapper(self, value):
+        prop_name = func.__name__.replace('_setter', '')
+        raise AttributeError(f"{prop_name} cannot be set directly as it is calculated "
+                           "from other state properties.")
+    return wrapper
+
+
+def test_state_validity(self):
+    """
+    Test if the current state properties are physically valid using HAPropsSI.
+    
+    Returns:
+        bool: True if the state is valid, False otherwise.
+    """
+    # To be implemented - will use HAPropsSI to validate the current state
+    pass
+
 class StateHA:
     """
     A class representing the thermodynamic state of humid air.
@@ -31,7 +90,7 @@ class StateHA:
         Dew point: 16.7°C
     """
     
-    def __init__(self, props=None):
+    def __init__(self):
         """
         Initialize a StateHA object for humid air properties.
         
@@ -50,22 +109,132 @@ class StateHA:
         Example:
             >>> state = StateHA(['T', 293.15, 'P', 101325, 'R', 0.5])
         """
-        self.props = None
-        self.tempk = None
-        self.tempc = None
-        self.press = None
-        self.humrat = None
-        self.wetbulb = None
-        self.relhum = None
-        self.vol = None
-        self.enthalpy = None
-        self.entropy = None
-        self.dewpoint = None
-        self.density = None
-        self.cp = None
+        self._tempk = None
+        self._tempc = None
+        self._press = None
+        self._humrat = None
+        self._wetbulb = None
+        self._relhum = None
+        self._vol = None
+        self._enthalpy = None
+        self._entropy = None
+        self._dewpoint = None
+        self._density = None
+        self._cp = None
         
-        if props is not None:
-            self.set(props)
+        self._dof = None
+        self._version = None
+        self._constraints_set = set()
+
+    @property
+    def tempk(self):
+        return self._tempk
+
+    @state_setter_HA
+    @tempk.setter
+    def tempk(self, value):
+        self._tempk = value
+
+    @property
+    def tempc(self):
+        return self._tempc if self._tempc is not None else (self._tempk - 273.15 if self._tempk is not None else None)
+
+    @state_setter_HA
+    @tempc.setter
+    def tempc(self, value):
+        self._tempc = value
+        self._tempk = value + 273.15
+
+    @property
+    def press(self):
+        return self._press
+
+    @state_setter_HA
+    @press.setter
+    def press(self, value):
+        self._press = value
+
+    @property
+    def humrat(self):
+        return self._humrat
+
+    @state_setter_HA
+    @humrat.setter
+    def humrat(self, value):
+        self._humrat = value
+
+    @property
+    def wetbulb(self):
+        return self._wetbulb
+
+    @state_setter_HA
+    @wetbulb.setter
+    def wetbulb(self, value):
+        self._wetbulb = value
+
+    @property
+    def relhum(self):
+        return self._relhum
+
+    @state_setter_HA
+    @relhum.setter
+    def relhum(self, value):
+        self._relhum = value
+
+    @property
+    def dewpoint(self):
+        return self._dewpoint
+
+    @state_setter_HA
+    @dewpoint.setter
+    def dewpoint(self, value):
+        self._dewpoint = value
+
+    @property
+    def vol(self):
+        return self._vol
+
+    @unsettable_property
+    @vol.setter
+    def vol(self, value):
+        self._vol = value
+
+    @property
+    def enthalpy(self):
+        return self._enthalpy
+
+    @unsettable_property
+    @enthalpy.setter
+    def enthalpy(self, value):
+        self._enthalpy = value
+
+    @property
+    def entropy(self):
+        return self._entropy
+
+    @unsettable_property
+    @entropy.setter
+    def entropy(self, value):
+        self._entropy = value
+
+    @property
+    def density(self):
+        return self._density
+
+    @unsettable_property
+    @density.setter
+    def density(self, value):
+        self._density = value
+
+    @property
+    def cp(self):
+        return self._cp
+
+    @unsettable_property
+    @cp.setter
+    def cp(self, value):
+        self._cp = value
+
     
     def set(self, props):
         """
