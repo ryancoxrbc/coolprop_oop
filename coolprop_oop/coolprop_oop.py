@@ -16,10 +16,6 @@ def state_setter_HA(func):
         if not hasattr(self, '_constraints_set'):
             self._constraints_set = set()
         
-        # Initialize version if not exists
-        if not hasattr(self, '_version'):
-            self._version = 0
-        
         # Allow setting if we have 0 or 1 constraint
         if len(self._constraints_set) < 2:
             func(self, value)
@@ -32,8 +28,6 @@ def state_setter_HA(func):
                 self.test_state_validity(self._constraints_set, prop_name, value)
                 func(self, value)
                 self._constraints_set.add(prop_name)
-                # Increment version when third property is successfully set
-                self._version += 1
             except ValueError as e:
                 raise ValueError(f"Cannot set {prop_name} - {str(e)}")
             return
@@ -41,16 +35,11 @@ def state_setter_HA(func):
         # If we have 3 constraints, only allow if property was previously set
         if len(self._constraints_set) == 3:
             if prop_name not in self._constraints_set:
-                raise ValueError(f"Cannot set {prop_name} - system is already fully constrained. "
-                               "Setting this property would overconstrain the state.")
-            # Create a set of the other two properties (excluding the one being updated)
+                raise ValueError(f"Cannot set {prop_name} - system is already fully constrained.")
             other_props = self._constraints_set - {prop_name}
-            # Test if the new value creates a valid state with the other two properties
             try:
                 self.test_state_validity(other_props, prop_name, value)
                 func(self, value)
-                # Increment version when property is successfully updated
-                self._version += 1
             except ValueError as e:
                 raise ValueError(f"Cannot set {prop_name} - {str(e)}")
             return
@@ -85,7 +74,7 @@ def cached_property(func):
         value_attr = f"_{prop_name}"
         
         # If we don't have 3 constraints yet, can't calculate anything
-        if len(self._constraints_set) < 3:
+        if not hasattr(self, '_constraints_set') or len(self._constraints_set) < 3:
             return getattr(self, value_attr)
         
         # If this property is one of our constraints, return the set value
@@ -105,7 +94,7 @@ def cached_property(func):
         
         return getattr(self, value_attr)
     
-    return property(getter)  # Return a property object instead of the wrapper function
+    return getter
 
 class StateHA:
     """
@@ -157,24 +146,22 @@ class StateHA:
         'prandtl': 'L'
     }
 
-    def __init__(self):
+    def __init__(self, props=None):
         """
         Initialize a StateHA object for humid air properties.
         
-        Args:
-            props (list, optional): Property inputs for HAPropsSI in the format
-                [prop1_name, prop1_value, prop2_name, prop2_value, prop3_name, prop3_value]
-                where prop_name can be:
-                - 'T': Temperature [K]
-                - 'P': Pressure [Pa]
-                - 'R': Relative humidity [-]
-                - 'W': Humidity ratio [kg/kg]
-                - 'B': Wet bulb temperature [K]
-                - 'D': Dew point temperature [K]
-                If provided, properties are calculated immediately.
+        Note:
+            While passing props at initialization is still supported for backwards compatibility,
+            it is recommended to set properties individually for better performance:
+                state = StateHA()
+                state.tempk = 293.15
+                state.press = 101325
+                state.relhum = 0.5
         
-        Example:
-            >>> state = StateHA(['T', 293.15, 'P', 101325, 'R', 0.5])
+        Args:
+            props (list, optional): DEPRECATED. Property inputs for HAPropsSI.
+                While still supported, direct property setting is preferred.
+                [prop1_name, prop1_value, prop2_name, prop2_value, prop3_name, prop3_value]
         """
         self._tempk = None
         self._tempc = None
@@ -189,16 +176,31 @@ class StateHA:
         self._density = None
         self._cp = None
         
-        self._version = None
         self._constraints_set = set()
+        
+        if props is not None:
+            warnings.warn(
+                "Initializing with props is deprecated and will be removed in version 2.0.0. "
+                "Use direct property setting instead:\n"
+                "    state = StateHA()\n"
+                "    state.tempk = value\n"
+                "    state.press = value\n"
+                "    state.relhum = value",
+                DeprecationWarning,
+                stacklevel=2
+            )
+            self.set(props)
 
     @property
-    @cached_property
     def tempk(self):
+        if 'tempk' in self._constraints_set:
+            return self._tempk
+        if len(self._constraints_set) == 3:
+            return self.get_prop('T')
         return self._tempk
 
-    @state_setter_HA
     @tempk.setter
+    @state_setter_HA
     def tempk(self, value):
         self._tempk = value
 
@@ -208,116 +210,126 @@ class StateHA:
             return self._tempc
         if 'tempk' in self._constraints_set:
             return self._tempk - 273.15
-        # If neither is a constraint, calculate tempk and convert
         return self.tempk - 273.15
 
-    @state_setter_HA
     @tempc.setter
+    @state_setter_HA
     def tempc(self, value):
         self._tempc = value
         self._tempk = value + 273.15
 
     @property
-    @cached_property
     def press(self):
+        if 'press' in self._constraints_set:
+            return self._press
+        if len(self._constraints_set) == 3:
+            return self.get_prop('P')
         return self._press
 
-    @state_setter_HA
     @press.setter
+    @state_setter_HA
     def press(self, value):
         self._press = value
 
     @property
-    @cached_property
-    def humrat(self):
-        return self._humrat
-
-    @state_setter_HA
-    @humrat.setter
-    def humrat(self, value):
-        self._humrat = value
-
-    @property
-    @cached_property
-    def wetbulb(self):
-        return self._wetbulb
-
-    @state_setter_HA
-    @wetbulb.setter
-    def wetbulb(self, value):
-        self._wetbulb = value
-
-    @property
-    @cached_property
     def relhum(self):
+        if 'relhum' in self._constraints_set:
+            return self._relhum
+        if len(self._constraints_set) == 3:
+            return self.get_prop('R')
         return self._relhum
 
-    @state_setter_HA
     @relhum.setter
+    @state_setter_HA
     def relhum(self, value):
         self._relhum = value
 
     @property
-    @cached_property
+    def humrat(self):
+        if 'humrat' in self._constraints_set:
+            return self._humrat
+        if len(self._constraints_set) == 3:
+            return self.get_prop('W')
+        return self._humrat
+
+    @humrat.setter
+    @state_setter_HA
+    def humrat(self, value):
+        self._humrat = value
+
+    @property
+    def wetbulb(self):
+        if 'wetbulb' in self._constraints_set:
+            return self._wetbulb
+        if len(self._constraints_set) == 3:
+            return self.get_prop('B')
+        return self._wetbulb
+
+    @wetbulb.setter
+    @state_setter_HA
+    def wetbulb(self, value):
+        self._wetbulb = value
+
+    @property
     def dewpoint(self):
         return self._dewpoint
 
-    @state_setter_HA
     @dewpoint.setter
+    @state_setter_HA
     def dewpoint(self, value):
         self._dewpoint = value
 
     @property
-    @cached_property
     def vol(self):
-        return self._vol
+        if len(self._constraints_set) == 3:
+            return self.get_prop('V')
+        return None
 
-    @unsettable_property
     @vol.setter
     def vol(self, value):
-        self._vol = value
+        raise AttributeError("vol cannot be set directly")
 
     @property
-    @cached_property
     def enthalpy(self):
-        return self._enthalpy
+        if len(self._constraints_set) == 3:
+            return self.get_prop('H')
+        return None
 
-    @unsettable_property
     @enthalpy.setter
     def enthalpy(self, value):
-        self._enthalpy = value
+        raise AttributeError("enthalpy cannot be set directly")
 
     @property
-    @cached_property
     def entropy(self):
-        return self._entropy
+        if len(self._constraints_set) == 3:
+            return self.get_prop('S')
+        return None
 
-    @unsettable_property
     @entropy.setter
     def entropy(self, value):
-        self._entropy = value
+        raise AttributeError("entropy cannot be set directly")
 
     @property
-    @cached_property
     def density(self):
-        return self._density
+        if len(self._constraints_set) == 3:
+            vol = self.get_prop('V')
+            return 1/vol if vol is not None else None
+        return None
 
-    @unsettable_property
     @density.setter
     def density(self, value):
-        self._density = value
+        raise AttributeError("density cannot be set directly")
 
     @property
-    @cached_property
     def cp(self):
-        return self._cp
+        if len(self._constraints_set) == 3:
+            return self.get_prop('C')
+        return None
 
-    @unsettable_property
     @cp.setter
     def cp(self, value):
-        self._cp = value
+        raise AttributeError("cp cannot be set directly")
 
-    
     def set(self, props):
         """
         DEPRECATED: Direct property setting is now preferred over the set method.
@@ -563,4 +575,4 @@ class StatePROPS:
             >>> state = StatePROPS(['T', 373.15, 'P', 101325, 'water'])
             >>> h = state.get_prop('H')  # Get specific enthalpy
         """
-        return PropsSI(prop, *self.props) 
+        return PropsSI(prop, *self.props)
