@@ -15,6 +15,10 @@ def state_setter_HA(func):
         if not hasattr(self, '_constraints_set'):
             self._constraints_set = set()
         
+        # Initialize version if not exists
+        if not hasattr(self, '_version'):
+            self._version = 0
+        
         # Allow setting if we have 0 or 1 constraint
         if len(self._constraints_set) < 2:
             func(self, value)
@@ -23,10 +27,14 @@ def state_setter_HA(func):
             
         # If we have 2 constraints, test validity before adding third
         if len(self._constraints_set) == 2:
-            if not self.test_state_validity(self._constraints_set, prop_name, value):
-                raise ValueError(f"Cannot set {prop_name} - the combination of properties would create an invalid state.")
-            func(self, value)
-            self._constraints_set.add(prop_name)
+            try:
+                self.test_state_validity(self._constraints_set, prop_name, value)
+                func(self, value)
+                self._constraints_set.add(prop_name)
+                # Increment version when third property is successfully set
+                self._version += 1
+            except ValueError as e:
+                raise ValueError(f"Cannot set {prop_name} - {str(e)}")
             return
             
         # If we have 3 constraints, only allow if property was previously set
@@ -37,9 +45,13 @@ def state_setter_HA(func):
             # Create a set of the other two properties (excluding the one being updated)
             other_props = self._constraints_set - {prop_name}
             # Test if the new value creates a valid state with the other two properties
-            if not self.test_state_validity(other_props, prop_name, value):
-                raise ValueError(f"Cannot set {prop_name} - the new value would create an invalid state.")
-            func(self, value)
+            try:
+                self.test_state_validity(other_props, prop_name, value)
+                func(self, value)
+                # Increment version when property is successfully updated
+                self._version += 1
+            except ValueError as e:
+                raise ValueError(f"Cannot set {prop_name} - {str(e)}")
             return
             
     return wrapper
@@ -96,7 +108,16 @@ class StateHA:
         'humrat': 'W',
         'wetbulb': 'B',
         'relhum': 'R',
-        'dewpoint': 'D'
+        'dewpoint': 'D',
+        'vol': 'V',
+        'enthalpy': 'H', 
+        'entropy': 'S',
+        'density': 'D',
+        'cp': 'C',
+        'viscosity': 'M',
+        'conductivity': 'K',
+        'compressibility': 'Z',
+        'prandtl': 'L'
     }
 
     def __init__(self):
