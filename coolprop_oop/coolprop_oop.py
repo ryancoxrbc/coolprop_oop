@@ -156,6 +156,7 @@ class StateHA:
         self._constraints_set = set()
 
     @property
+    @cached_property
     def tempk(self):
         return self._tempk
 
@@ -166,7 +167,12 @@ class StateHA:
 
     @property
     def tempc(self):
-        return self._tempc if self._tempc is not None else (self._tempk - 273.15 if self._tempk is not None else None)
+        if 'tempc' in self._constraints_set:
+            return self._tempc
+        if 'tempk' in self._constraints_set:
+            return self._tempk - 273.15
+        # If neither is a constraint, calculate tempk and convert
+        return self.tempk - 273.15
 
     @state_setter_HA
     @tempc.setter
@@ -175,6 +181,7 @@ class StateHA:
         self._tempk = value + 273.15
 
     @property
+    @cached_property
     def press(self):
         return self._press
 
@@ -184,6 +191,7 @@ class StateHA:
         self._press = value
 
     @property
+    @cached_property
     def humrat(self):
         return self._humrat
 
@@ -193,6 +201,7 @@ class StateHA:
         self._humrat = value
 
     @property
+    @cached_property
     def wetbulb(self):
         return self._wetbulb
 
@@ -202,6 +211,7 @@ class StateHA:
         self._wetbulb = value
 
     @property
+    @cached_property
     def relhum(self):
         return self._relhum
 
@@ -211,6 +221,7 @@ class StateHA:
         self._relhum = value
 
     @property
+    @cached_property
     def dewpoint(self):
         return self._dewpoint
 
@@ -377,7 +388,8 @@ class StateHA:
         """
         Decorator for property getters that implements version-based caching.
         
-        Checks if the cached value is from the current state version before returning it.
+        If the property is part of the constraints set, returns the directly set value.
+        Otherwise, checks if the cached value is from the current state version before returning it.
         If not current, recalculates the property and updates the cache.
         """
         def wrapper(self):
@@ -385,11 +397,15 @@ class StateHA:
             version_attr = f"_{prop_name}_version"
             value_attr = f"_{prop_name}"
             
-            # If we don't have 3 constraints yet, property can't be calculated
+            # If we don't have 3 constraints yet, can't calculate anything
             if len(self._constraints_set) < 3:
                 return getattr(self, value_attr)
             
-            # Check if we need to update the cached value
+            # If this property is one of our constraints, return the set value
+            if prop_name in self._constraints_set:
+                return getattr(self, value_attr)
+            
+            # Otherwise, check if we need to update the cached value
             if (not hasattr(self, version_attr) or 
                 getattr(self, version_attr) != self._version):
                 # Get the CoolProp property name from our mapping
