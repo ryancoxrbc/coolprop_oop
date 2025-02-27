@@ -5,7 +5,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setup(
     name="coolprop-oop",
-    version="0.1.1",
+    version="1.0.0",
     author="Ryan Cox",
     author_email="ryanbradleycox@gmail.com",
     description="Object-oriented wrapper for CoolProp thermodynamic properties",
