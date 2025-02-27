@@ -58,22 +58,6 @@ def unsettable_property(func):
                            "from other state properties.")
     return wrapper
 
-
-def test_state_validity(self, current_props, new_prop, new_value):
-    """
-    Test if the current state properties are physically valid using HAPropsSI.
-    
-    Args:
-        current_props (set): Set of currently set property names
-        new_prop (str): Name of the new property being set
-        new_value (float): Value of the new property
-    
-    Returns:
-        bool: True if the state is valid, False otherwise.
-    """
-    # To be implemented - will use HAPropsSI to validate the current state
-    pass
-
 class StateHA:
     """
     A class representing the thermodynamic state of humid air.
@@ -105,6 +89,16 @@ class StateHA:
         Dew point: 16.7°C
     """
     
+    _prop_map = {
+        'tempk': 'T',
+        'tempc': 'T',  # Will need special handling for Celsius conversion
+        'press': 'P',
+        'humrat': 'W',
+        'wetbulb': 'B',
+        'relhum': 'R',
+        'dewpoint': 'D'
+    }
+
     def __init__(self):
         """
         Initialize a StateHA object for humid air properties.
@@ -311,6 +305,46 @@ class StateHA:
             >>> h = state.get_prop('H')  # Get specific enthalpy
         """
         return HAPropsSI(prop, *self.props)
+
+    def test_state_validity(self, current_props, new_prop, new_value):
+        """
+        Test if the current state properties are physically valid using HAPropsSI.
+        
+        Args:
+            current_props (set): Set of currently set property names
+            new_prop (str): Name of the new property being set
+            new_value (float): Value of the new property
+        
+        Returns:
+            bool: True if the state is valid, False otherwise.
+        
+        Raises:
+            ValueError: If the combination of properties would create an invalid state,
+                      with the specific error message from CoolProp.
+        """
+        try:
+            # Build a test props list with current properties and new value
+            test_props = []
+            for prop in current_props:
+                coolprop_name = self._prop_map[prop]
+                value = getattr(self, f"_{prop}")
+                # Handle Celsius conversion
+                if prop == 'tempc':
+                    value = value + 273.15
+                test_props.extend([coolprop_name, value])
+            
+            # Add the new property
+            coolprop_new_prop = self._prop_map[new_prop]
+            new_value_converted = new_value + 273.15 if new_prop == 'tempc' else new_value
+            test_props.extend([coolprop_new_prop, new_value_converted])
+            
+            # Try to calculate any property (e.g., enthalpy) with these inputs
+            HAPropsSI('H', *test_props)
+            return True
+            
+        except ValueError as e:
+            # Re-raise with the CoolProp error message for better explanation
+            raise ValueError(f"Invalid state: {str(e)}") from None
 
 class StatePROPS:
     """
