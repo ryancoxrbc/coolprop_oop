@@ -220,6 +220,7 @@ class StateHA:
         self._dewpoint = value
 
     @property
+    @cached_property
     def vol(self):
         return self._vol
 
@@ -229,6 +230,7 @@ class StateHA:
         self._vol = value
 
     @property
+    @cached_property
     def enthalpy(self):
         return self._enthalpy
 
@@ -238,6 +240,7 @@ class StateHA:
         self._enthalpy = value
 
     @property
+    @cached_property
     def entropy(self):
         return self._entropy
 
@@ -247,6 +250,7 @@ class StateHA:
         self._entropy = value
 
     @property
+    @cached_property
     def density(self):
         return self._density
 
@@ -256,6 +260,7 @@ class StateHA:
         self._density = value
 
     @property
+    @cached_property
     def cp(self):
         return self._cp
 
@@ -367,6 +372,37 @@ class StateHA:
         except ValueError as e:
             # Re-raise with the CoolProp error message for better explanation
             raise ValueError(f"Invalid state: {str(e)}") from None
+
+    def cached_property(self, func):
+        """
+        Decorator for property getters that implements version-based caching.
+        
+        Checks if the cached value is from the current state version before returning it.
+        If not current, recalculates the property and updates the cache.
+        """
+        def wrapper(self):
+            prop_name = func.__name__
+            version_attr = f"_{prop_name}_version"
+            value_attr = f"_{prop_name}"
+            
+            # If we don't have 3 constraints yet, property can't be calculated
+            if len(self._constraints_set) < 3:
+                return getattr(self, value_attr)
+            
+            # Check if we need to update the cached value
+            if (not hasattr(self, version_attr) or 
+                getattr(self, version_attr) != self._version):
+                # Get the CoolProp property name from our mapping
+                coolprop_name = self._prop_map[prop_name]
+                # Calculate and store the new value
+                value = self.get_prop(coolprop_name)
+                setattr(self, value_attr, value)
+                # Update the version
+                setattr(self, version_attr, self._version)
+            
+            return getattr(self, value_attr)
+        
+        return wrapper
 
 class StatePROPS:
     """
