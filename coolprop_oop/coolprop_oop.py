@@ -1,4 +1,5 @@
 from CoolProp.CoolProp import HAPropsSI, PropsSI
+import warnings
 
 def state_setter_HA(func):
     """
@@ -283,10 +284,17 @@ class StateHA:
     
     def set(self, props):
         """
-        Set the properties of the StateHA object using the provided inputs.
+        DEPRECATED: Direct property setting is now preferred over the set method.
         
-        This method calculates all state properties based on the three input properties
-        provided. It uses CoolProp's HAPropsSI function internally.
+        Set the properties of the StateHA object using the provided inputs.
+        This method will be removed in version 2.0.0.
+        
+        Instead of:
+            state.set(['T', 293.15, 'P', 101325, 'R', 0.5])
+        Use:
+            state.tempk = 293.15
+            state.press = 101325
+            state.relhum = 0.5
         
         Args:
             props (list): Property inputs for HAPropsSI in the format
@@ -294,26 +302,31 @@ class StateHA:
         
         Returns:
             StateHA: The current object for method chaining.
-        
-        Example:
-            >>> state = StateHA()
-            >>> state.set(['T', 293.15, 'P', 101325, 'R', 0.5])
-            >>> print(f"{state.tempc:.1f}°C")
-            20.0°C
         """
+        warnings.warn(
+            "The set() method is deprecated and will be removed in version 2.0.0. "
+            "Use direct property setting instead (e.g., state.tempk = value).",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        
         self.props = props
-        self.tempk = self.get_prop("T")
-        self.tempc = self.tempk - 273.15
-        self.press = self.get_prop("P")
-        self.humrat = self.get_prop("W")
-        self.wetbulb = self.get_prop("B")
-        self.relhum = self.get_prop("R")
-        self.vol = self.get_prop("V")
-        self.enthalpy = self.get_prop("H")
-        self.entropy = self.get_prop("S")
-        self.dewpoint = self.get_prop("D")
-        self.density = 1/self.vol
-        self.cp = self.get_prop("C")
+        # Map CoolProp properties to our setter methods
+        prop_map = {
+            'T': 'tempk',
+            'P': 'press',
+            'W': 'humrat',
+            'R': 'relhum',
+            'B': 'wetbulb',
+            'D': 'dewpoint'
+        }
+        
+        # Set properties using our property setters
+        for i in range(0, len(props), 2):
+            prop_name = props[i]
+            value = props[i + 1]
+            if prop_name in prop_map:
+                setattr(self, prop_map[prop_name], value)
         
         return self
     
