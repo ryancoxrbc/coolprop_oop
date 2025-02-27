@@ -71,6 +71,42 @@ def unsettable_property(func):
                            "from other state properties.")
     return wrapper
 
+def cached_property(func):
+    """
+    Decorator for property getters that implements version-based caching.
+    
+    If the property is part of the constraints set, returns the directly set value.
+    Otherwise, checks if the cached value is from the current state version before returning it.
+    If not current, recalculates the property and updates the cache.
+    """
+    def wrapper(self):
+        prop_name = func.__name__
+        version_attr = f"_{prop_name}_version"
+        value_attr = f"_{prop_name}"
+        
+        # If we don't have 3 constraints yet, can't calculate anything
+        if len(self._constraints_set) < 3:
+            return getattr(self, value_attr)
+        
+        # If this property is one of our constraints, return the set value
+        if prop_name in self._constraints_set:
+            return getattr(self, value_attr)
+        
+        # Otherwise, check if we need to update the cached value
+        if (not hasattr(self, version_attr) or 
+            getattr(self, version_attr) != self._version):
+            # Get the CoolProp property name from our mapping
+            coolprop_name = self._prop_map[prop_name]
+            # Calculate and store the new value
+            value = self.get_prop(coolprop_name)
+            setattr(self, value_attr, value)
+            # Update the version
+            setattr(self, version_attr, self._version)
+        
+        return getattr(self, value_attr)
+    
+    return wrapper
+
 class StateHA:
     """
     A class representing the thermodynamic state of humid air.
@@ -350,11 +386,23 @@ class StateHA:
         Returns:
             float: The value of the requested property.
         
-        Example:
-            >>> state = StateHA(['T', 293.15, 'P', 101325, 'R', 0.5])
-            >>> h = state.get_prop('H')  # Get specific enthalpy
+        Raises:
+            ValueError: If the state is not fully defined (needs 3 constraints)
         """
-        return HAPropsSI(prop, *self.props)
+        if len(self._constraints_set) < 3:
+            raise ValueError("Cannot calculate properties until state is fully defined with 3 constraints")
+        
+        # Build props list from constraints set
+        props = []
+        for constraint in self._constraints_set:
+            coolprop_name = self._prop_map[constraint]
+            value = getattr(self, f"_{constraint}")
+            # Handle Celsius conversion
+            if constraint == 'tempc':
+                value = value + 273.15
+            props.extend([coolprop_name, value])
+        
+        return HAPropsSI(prop, *props)
 
     def test_state_validity(self, current_props, new_prop, new_value):
         """
@@ -396,42 +444,6 @@ class StateHA:
         except ValueError as e:
             # Re-raise with the CoolProp error message for better explanation
             raise ValueError(f"Invalid state: {str(e)}") from None
-
-    def cached_property(self, func):
-        """
-        Decorator for property getters that implements version-based caching.
-        
-        If the property is part of the constraints set, returns the directly set value.
-        Otherwise, checks if the cached value is from the current state version before returning it.
-        If not current, recalculates the property and updates the cache.
-        """
-        def wrapper(self):
-            prop_name = func.__name__
-            version_attr = f"_{prop_name}_version"
-            value_attr = f"_{prop_name}"
-            
-            # If we don't have 3 constraints yet, can't calculate anything
-            if len(self._constraints_set) < 3:
-                return getattr(self, value_attr)
-            
-            # If this property is one of our constraints, return the set value
-            if prop_name in self._constraints_set:
-                return getattr(self, value_attr)
-            
-            # Otherwise, check if we need to update the cached value
-            if (not hasattr(self, version_attr) or 
-                getattr(self, version_attr) != self._version):
-                # Get the CoolProp property name from our mapping
-                coolprop_name = self._prop_map[prop_name]
-                # Calculate and store the new value
-                value = self.get_prop(coolprop_name)
-                setattr(self, value_attr, value)
-                # Update the version
-                setattr(self, version_attr, self._version)
-            
-            return getattr(self, value_attr)
-        
-        return wrapper
 
 class StatePROPS:
     """
