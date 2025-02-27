@@ -4,32 +4,29 @@ def state_setter_HA(func):
     """
     Decorator for property setters that manages state constraints for humid air properties.
     
-    Checks the degrees of freedom and version before allowing property to be set.
+    Checks the number of constraints and version before allowing property to be set.
     Prevents overconstraining the system while allowing property updates when version changes.
     Also tracks which properties have been set for state validation.
     """
     def wrapper(self, value):
         prop_name = func.__name__.replace('_setter', '')
         
-        # Allow setting if DOF is None (initial state) or 1 (needs one more property)
-        if self._dof is None or self._dof in [1,2]:
-            # Initialize constraints set if not exists
-            if not hasattr(self, '_constraints_set'):
-                self._constraints_set = set()
-            
+        # Initialize constraints set if not exists
+        if not hasattr(self, '_constraints_set'):
+            self._constraints_set = set()
+        
+        # Allow setting if we have 0, 1, or 2 constraints
+        if len(self._constraints_set) < 3:
             func(self, value)
-            # Add property to constraints set
             self._constraints_set.add(prop_name)
             return
             
-        # If DOF is 3 (fully constrained), only allow if property wasn't previously set
-        # or if version number changed
-        if self._dof == 3:
-            if hasattr(self, f'_{prop_name}') and self._version == getattr(self, '_version'):
-                raise ValueError(f"Cannot set {prop_name} - state is already fully constrained. "
-                               "Clear state first.")
+        # If we have 3 constraints, only allow if property was previously set
+        if len(self._constraints_set) == 3:
+            if prop_name not in self._constraints_set:
+                raise ValueError(f"Cannot set {prop_name} - system is already fully constrained. "
+                               "Setting this property would overconstrain the state.")
             func(self, value)
-            self._constraints_set.add(prop_name)
             return
             
     return wrapper
@@ -122,7 +119,6 @@ class StateHA:
         self._density = None
         self._cp = None
         
-        self._dof = None
         self._version = None
         self._constraints_set = set()
 
