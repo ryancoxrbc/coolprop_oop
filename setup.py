@@ -19,7 +19,6 @@ setup(
         "Operating System :: OS Independent",
         "Topic :: Scientific/Engineering :: Physics",
         "Topic :: Scientific/Engineering :: Chemistry",
-        "Topic :: Scientific/Engineering :: Thermodynamics",
         "Intended Audience :: Science/Research",
         "Intended Audience :: Education",
         "Development Status :: 5 - Production/Stable",
