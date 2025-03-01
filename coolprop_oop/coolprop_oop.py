@@ -155,10 +155,15 @@ def state_setter_PROPS(func):
     Checks the number of constraints and version before allowing property to be set.
     Prevents overconstraining the system while allowing property updates when version changes.
     Also tracks which properties have been set for state validation.
+    First ensures that fluid is set before allowing any properties to be defined.
     """
     @wraps(func)
     def wrapper(self, value):
         prop_name = func.__name__.replace('_setter', '')
+        
+        # Check if fluid is set before allowing any property to be set
+        if not hasattr(self, '_fluid') or self._fluid is None:
+            raise ValueError(f"Cannot set {prop_name} - fluid type must be set first with state.fluid = 'fluid_name'")
         
         # Initialize constraints set if not exists
         if not hasattr(self, '_constraints_set'):
@@ -625,6 +630,11 @@ class StatePROPS:
     for pure fluid properties. It automatically calculates and caches common properties
     for easy access.
     
+    Important:
+        For a StatePROPS object to be fully defined, you must:
+        1. Set the fluid type with state.fluid = 'fluid_name'
+        2. Set exactly 2 independent thermodynamic properties
+    
     Attributes:
         tempk (float): Temperature in Kelvin
         tempc (float): Temperature in Celsius
@@ -635,6 +645,16 @@ class StatePROPS:
         quality (float): Vapor quality (0-1), or None if not in two-phase region
         cp (float): Specific heat capacity at constant pressure in J/kg-K
         cv (float): Specific heat capacity at constant volume in J/kg-K
+        fluid (str): The working fluid name (must be set before other properties)
+        
+    Example:
+        >>> # Create state for water at 25°C, 1 atm
+        >>> state = StatePROPS()
+        >>> state.fluid = 'Water'
+        >>> state.tempc = 25
+        >>> state.press = 101325
+        >>> print(f"Density: {state.dens:.2f} kg/m³")
+        Density: 997.05 kg/m³
     """
     
     _prop_map = {
@@ -649,7 +669,7 @@ class StatePROPS:
         'cv': 'O'
     }
     
-    def __init__(self, props=None):
+    def __init__(self, props=None, fluid=None):
         """
         Initialize a StatePROPS object for pure fluid properties.
         
@@ -657,6 +677,14 @@ class StatePROPS:
             props (list, optional): DEPRECATED. Property inputs for PropsSI.
                 While still supported, direct property setting is preferred.
                 [prop1_name, prop1_value, prop2_name, prop2_value, fluid_name]
+            fluid (str, optional): The working fluid name. If provided, sets the fluid immediately.
+                This is the recommended way to initialize a StatePROPS object.
+        
+        Example:
+            >>> # Recommended initialization
+            >>> state = StatePROPS(fluid='Water')
+            >>> state.tempc = 25
+            >>> state.press = 101325
         """
         self._tempk = None
         self._tempc = None
@@ -671,14 +699,17 @@ class StatePROPS:
         
         self._constraints_set = set()
         
+        # Set fluid if provided
+        if fluid is not None:
+            self.fluid = fluid
+        
         if props is not None:
             warnings.warn(
                 "Initializing with props is deprecated and will be removed in version 2.0.0. "
                 "Use direct property setting instead:\n"
-                "    state = StatePROPS()\n"
+                "    state = StatePROPS(fluid='water')\n"
                 "    state.tempk = value\n"
-                "    state.press = value\n"
-                "    state.fluid = 'water'",
+                "    state.press = value",
                 DeprecationWarning,
                 stacklevel=2
             )
@@ -745,7 +776,7 @@ class StatePROPS:
     def quality(self):
         if 'quality' in self._constraints_set:
             return self._quality
-        if len(self._constraints_set) == 2:
+        if len(self._constraints_set) == 2 and self._fluid is not None:
             try:
                 return self.get_prop('Q')
             except ValueError:
@@ -760,7 +791,7 @@ class StatePROPS:
 
     @property
     def enthalpy(self):
-        if len(self._constraints_set) == 2:
+        if len(self._constraints_set) == 2 and self._fluid is not None:
             return self.get_prop('H')
         return None
 
@@ -770,7 +801,7 @@ class StatePROPS:
 
     @property
     def entropy(self):
-        if len(self._constraints_set) == 2:
+        if len(self._constraints_set) == 2 and self._fluid is not None:
             return self.get_prop('S')
         return None
 
@@ -780,7 +811,7 @@ class StatePROPS:
 
     @property
     def cp(self):
-        if len(self._constraints_set) == 2:
+        if len(self._constraints_set) == 2 and self._fluid is not None:
             return self.get_prop('C')
         return None
 
@@ -790,7 +821,7 @@ class StatePROPS:
 
     @property
     def cv(self):
-        if len(self._constraints_set) == 2:
+        if len(self._constraints_set) == 2 and self._fluid is not None:
             return self.get_prop('O')
         return None
 
@@ -807,11 +838,23 @@ class StatePROPS:
         For a pure fluid state to be fully defined, it needs exactly 2 constraints plus a fluid type.
         
         Returns:
-            list: A sorted list of property names that are currently set as constraints.
+            dict: A dictionary containing:
+                - 'properties': List of thermodynamic property names that are set as constraints
+                - 'fluid': The currently set fluid name or None if not set
+                - 'is_complete': Boolean indicating if the state is fully defined
         """
         if not hasattr(self, '_constraints_set'):
-            return []
-        return sorted(list(self._constraints_set))
+            props = []
+        else:
+            props = sorted(list(self._constraints_set))
+        
+        fluid = self._fluid if hasattr(self, '_fluid') else None
+        
+        return {
+            'properties': props,
+            'fluid': fluid,
+            'is_complete': len(props) == 2 and fluid is not None
+        }
 
     @property
     def fluid(self):
@@ -831,27 +874,33 @@ class StatePROPS:
         This method will be removed in version 2.0.0.
         
         Instead of:
-            state.set(['T', 293.15, 'P', 101325, 'R', 0.5])
+            state.set(['T', 293.15, 'P', 101325, 'water'])
         Use:
+            state.fluid = 'water'
             state.tempk = 293.15
             state.press = 101325
-            state.relhum = 0.5
         
         Args:
             props (list): Property inputs for PropsSI in the format
-                [prop1_name, prop1_value, prop2_name, prop2_value, prop3_name, prop3_value]
+                [prop1_name, prop1_value, prop2_name, prop2_value, fluid_name]
         
         Returns:
             StatePROPS: The current object for method chaining.
         """
         warnings.warn(
             "The set() method is deprecated and will be removed in version 2.0.0. "
-            "Use direct property setting instead (e.g., state.tempk = value).",
+            "Use direct property setting instead (e.g., state.fluid = 'fluid_name', state.tempk = value).",
             DeprecationWarning,
             stacklevel=2
         )
         
-        self.props = props
+        # Extract and set fluid name first (last element of props)
+        if len(props) >= 5:  # At least 2 properties (4 elements) plus fluid
+            self.fluid = props[-1]
+            props = props[:-1]  # Remove fluid from props
+        else:
+            raise ValueError("Props must include a fluid name as the last element")
+        
         # Map CoolProp properties to our setter methods
         prop_map = {
             'T': 'tempk',
@@ -869,7 +918,11 @@ class StatePROPS:
             prop_name = props[i]
             value = props[i + 1]
             if prop_name in prop_map:
-                setattr(self, prop_map[prop_name], value)
+                try:
+                    setattr(self, prop_map[prop_name], value)
+                except AttributeError as e:
+                    # Skip derived properties that cannot be set directly
+                    warnings.warn(f"Skipping {prop_name}: {str(e)}")
         
         return self
 
