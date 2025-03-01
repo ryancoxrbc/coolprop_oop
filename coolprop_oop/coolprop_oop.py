@@ -51,6 +51,53 @@ def validate_input_ha(func):
             if value > 1:  # Extremely high - likely an error
                 raise ValueError("Humidity ratio exceeding reasonable range (> 1 kg/kg)")
         
+        # Validation for newly settable properties
+        elif prop_name == 'vol':
+            if value <= 0:
+                raise ValueError("Specific volume must be positive")
+            if value > 1000:  # Very high specific volume
+                raise ValueError("Specific volume exceeding reasonable range (> 1000 m³/kg)")
+                
+        elif prop_name == 'enthalpy':
+            # No strict limits on enthalpy, but should be reasonable
+            if abs(value) > 1e7:  # Very high enthalpy
+                raise ValueError("Enthalpy exceeding reasonable range (|h| > 10,000,000 J/kg)")
+                
+        elif prop_name == 'entropy':
+            # No strict limits on entropy, but should be reasonable
+            if abs(value) > 1e5:  # Very high entropy
+                raise ValueError("Entropy exceeding reasonable range (|s| > 100,000 J/kg-K)")
+                
+        elif prop_name == 'density':
+            if value <= 0:
+                raise ValueError("Density must be positive")
+            if value > 50:  # Very high density for humid air
+                raise ValueError("Density exceeding reasonable range (> 50 kg/m³)")
+                
+        elif prop_name == 'cp':
+            if value <= 0:
+                raise ValueError("Specific heat capacity must be positive")
+            if value > 10000:  # Very high cp
+                raise ValueError("Specific heat capacity exceeding reasonable range (> 10,000 J/kg-K)")
+        
+        elif prop_name == 'viscosity':
+            if value <= 0:
+                raise ValueError("Viscosity must be positive")
+            if value > 1:  # Very high viscosity for air
+                raise ValueError("Viscosity exceeding reasonable range (> 1 Pa⋅s)")
+                
+        elif prop_name == 'conductivity':
+            if value <= 0:
+                raise ValueError("Thermal conductivity must be positive")
+            if value > 1:  # Very high thermal conductivity for air
+                raise ValueError("Thermal conductivity exceeding reasonable range (> 1 W/m-K)")
+                
+        elif prop_name == 'prandtl':
+            if value <= 0:
+                raise ValueError("Prandtl number must be positive")
+            if value > 1000:  # Very high Prandtl number
+                raise ValueError("Prandtl number exceeding reasonable range (> 1000)")
+        
         return func(self, value)
     return wrapper
 
@@ -58,8 +105,8 @@ def state_setter_ha(func):
     """
     Decorator for property setters that manages state constraints for humid air properties.
     
-    Checks the number of constraints and version before allowing property to be set.
-    Prevents overconstraining the system while allowing property updates when version changes.
+    Checks if this property is already set before allowing the property to be set.
+    Property state validity is handled by CoolProp, and exceptions are passed to user.
     Also tracks which properties have been set for state validation.
     """
     @wraps(func)
@@ -70,33 +117,22 @@ def state_setter_ha(func):
         if not hasattr(self, '_constraints_set'):
             self._constraints_set = set()
         
-        # Allow setting if we have 0 or 1 constraint
-        if len(self._constraints_set) < 2:
+        # Always allow setting if we have 0 or 1 constraint or if this property is already set
+        if len(self._constraints_set) < 2 or prop_name in self._constraints_set:
             func(self, value)
             self._constraints_set.add(prop_name)
             return
             
-        # If we have 2 constraints, test validity before adding third
-        if len(self._constraints_set) == 2:
-            try:
-                self.test_state_validity(self._constraints_set, prop_name, value)
-                func(self, value)
-                self._constraints_set.add(prop_name)
-            except ValueError as e:
-                raise ValueError(f"Cannot set {prop_name} - {str(e)}\nPlease validate all set properties: {', '.join(sorted(self._constraints_set))} and {prop_name}")
-            return
-            
-        # If we have 3 constraints, only allow if property was previously set
-        if len(self._constraints_set) == 3:
-            if prop_name not in self._constraints_set:
-                raise ValueError(f"Cannot set {prop_name} - system is already fully constrained.")
-            other_props = self._constraints_set - {prop_name}
-            try:
-                self.test_state_validity(other_props, prop_name, value)
-                func(self, value)
-            except ValueError as e:
-                raise ValueError(f"Cannot set {prop_name} - {str(e)}\nPlease validate all set properties: {', '.join(sorted(other_props))} and {prop_name}")
-            return
+        # If we have 2+ constraints, try setting the new property
+        # CoolProp will validate state and throw error if invalid
+        try:
+            # Try to set the property
+            func(self, value)
+            # If successful, add to constraints
+            self._constraints_set.add(prop_name)
+        except Exception as e:
+            # Pass along any CoolProp errors to the user
+            raise ValueError(f"Cannot set {prop_name} - {str(e)}")
             
     return wrapper
 
@@ -144,6 +180,29 @@ def validate_input_props(func):
         elif prop_name == 'quality':
             if value < 0 or value > 1:
                 raise ValueError("Quality must be between 0 and 1")
+                
+        # Validation for newly settable properties
+        elif prop_name == 'enthalpy':
+            # No strict limits on enthalpy, but should be reasonable
+            if abs(value) > 1e8:  # Very high enthalpy
+                raise ValueError("Enthalpy exceeding reasonable range (|h| > 100,000,000 J/kg)")
+                
+        elif prop_name == 'entropy':
+            # No strict limits on entropy, but should be reasonable
+            if abs(value) > 1e6:  # Very high entropy
+                raise ValueError("Entropy exceeding reasonable range (|s| > 1,000,000 J/kg-K)")
+                
+        elif prop_name == 'cp':
+            if value <= 0:
+                raise ValueError("Specific heat capacity at constant pressure must be positive")
+            if value > 1e5:  # Very high cp
+                raise ValueError("Specific heat capacity exceeding reasonable range (> 100,000 J/kg-K)")
+                
+        elif prop_name == 'cv':
+            if value <= 0:
+                raise ValueError("Specific heat capacity at constant volume must be positive")
+            if value > 1e5:  # Very high cv
+                raise ValueError("Specific heat capacity exceeding reasonable range (> 100,000 J/kg-K)")
         
         return func(self, value)
     return wrapper
@@ -152,10 +211,10 @@ def state_setter_PROPS(func):
     """
     Decorator for property setters that manages state constraints for pure fluid properties.
     
-    Checks the number of constraints and version before allowing property to be set.
-    Prevents overconstraining the system while allowing property updates when version changes.
+    Checks if fluid is set before allowing properties to be set.
+    Checks if this property is already set before allowing changes.
+    Property state validity is handled by CoolProp, and exceptions are passed to user.
     Also tracks which properties have been set for state validation.
-    First ensures that fluid is set before allowing any properties to be defined.
     """
     @wraps(func)
     def wrapper(self, value):
@@ -169,38 +228,23 @@ def state_setter_PROPS(func):
         if not hasattr(self, '_constraints_set'):
             self._constraints_set = set()
         
-        # Allow setting if we have 0 or 1 constraint
-        if len(self._constraints_set) < 2:
+        # Always allow setting if we have 0 or 1 constraint or if this property is already set
+        if len(self._constraints_set) < 2 or prop_name in self._constraints_set:
             func(self, value)
             self._constraints_set.add(prop_name)
             return
             
-        # If we have 2 constraints, only allow if property was previously set
-        if len(self._constraints_set) == 2:
-            if prop_name not in self._constraints_set:
-                raise ValueError(f"Cannot set {prop_name} - system is already fully constrained with 2 properties: {', '.join(sorted(self._constraints_set))}")
-            try:
-                self.test_state_validity(self._constraints_set - {prop_name}, prop_name, value)
-                func(self, value)
-            except ValueError as e:
-                raise ValueError(f"Cannot set {prop_name} - {str(e)}\nPlease validate all set properties: {', '.join(sorted(self._constraints_set - {prop_name}))} and {prop_name}")
-            return
+        # If we already have 2 constraints, try to set the property
+        # CoolProp will validate state and throw error if invalid
+        try:
+            # Try to set the property
+            func(self, value)
+            # If successful, add to constraints
+            self._constraints_set.add(prop_name)
+        except Exception as e:
+            # Pass along any CoolProp errors to the user
+            raise ValueError(f"Cannot set {prop_name} - {str(e)}")
             
-    return wrapper
-
-def unsettable_property(func):
-    """
-    Decorator for properties that should not be settable.
-    
-    Raises an AttributeError if an attempt is made to set the property.
-    Used for properties that are calculated from other state variables and
-    should not be directly set.
-    """
-    @wraps(func)
-    def wrapper(self, value):
-        prop_name = func.__name__.replace('_setter', '')
-        raise AttributeError(f"{prop_name} cannot be set directly as it is calculated "
-                           "from other state properties.")
     return wrapper
 
 def cached_property(func):
@@ -318,6 +362,9 @@ class StateHA:
         self._dewpoint = None
         self._density = None
         self._cp = None
+        self._viscosity = None
+        self._conductivity = None
+        self._prandtl = None
         
         self._constraints_set = set()
         
@@ -431,54 +478,116 @@ class StateHA:
 
     @property
     def vol(self):
+        if 'vol' in self._constraints_set:
+            return self._vol
         if len(self._constraints_set) == 3:
             return self.get_prop('V')
-        return None
+        return self._vol
 
     @vol.setter
+    @state_setter_ha
+    @validate_input_ha
     def vol(self, value):
-        raise AttributeError("vol cannot be set directly")
+        self._vol = value
 
     @property
     def enthalpy(self):
+        if 'enthalpy' in self._constraints_set:
+            return self._enthalpy
         if len(self._constraints_set) == 3:
             return self.get_prop('H')
-        return None
+        return self._enthalpy
 
     @enthalpy.setter
+    @state_setter_ha
+    @validate_input_ha
     def enthalpy(self, value):
-        raise AttributeError("enthalpy cannot be set directly")
+        self._enthalpy = value
 
     @property
     def entropy(self):
+        if 'entropy' in self._constraints_set:
+            return self._entropy
         if len(self._constraints_set) == 3:
             return self.get_prop('S')
-        return None
+        return self._entropy
 
     @entropy.setter
+    @state_setter_ha
+    @validate_input_ha
     def entropy(self, value):
-        raise AttributeError("entropy cannot be set directly")
+        self._entropy = value
 
     @property
     def density(self):
+        if 'density' in self._constraints_set:
+            return self._density
         if len(self._constraints_set) == 3:
             vol = self.get_prop('V')
             return 1/vol if vol is not None else None
-        return None
+        return self._density
 
     @density.setter
+    @state_setter_ha
+    @validate_input_ha
     def density(self, value):
-        raise AttributeError("density cannot be set directly")
+        self._density = value
 
     @property
     def cp(self):
+        if 'cp' in self._constraints_set:
+            return self._cp
         if len(self._constraints_set) == 3:
             return self.get_prop('C')
-        return None
+        return self._cp
 
     @cp.setter
+    @state_setter_ha
+    @validate_input_ha
     def cp(self, value):
-        raise AttributeError("cp cannot be set directly")
+        self._cp = value
+
+    @property
+    def viscosity(self):
+        if 'viscosity' in self._constraints_set:
+            return self._viscosity
+        if len(self._constraints_set) == 3:
+            return self.get_prop('M')
+        return self._viscosity
+
+    @viscosity.setter
+    @state_setter_ha
+    @validate_input_ha
+    def viscosity(self, value):
+        self._viscosity = value
+
+    @property
+    def conductivity(self):
+        if 'conductivity' in self._constraints_set:
+            return self._conductivity
+        if len(self._constraints_set) == 3:
+            return self.get_prop('K')
+        return self._conductivity
+
+    @conductivity.setter
+    @state_setter_ha
+    @validate_input_ha
+    def conductivity(self, value):
+        self._conductivity = value
+
+    @property
+    def prandtl(self):
+        if 'prandtl' in self._constraints_set:
+            return self._prandtl
+        if len(self._constraints_set) == 3:
+            return self.get_prop('L')
+        return self._prandtl
+
+    @prandtl.setter
+    @state_setter_ha
+    @validate_input_ha
+    def prandtl(self, value):
+        self._prandtl = value
 
     @property
     def constraints(self):
@@ -531,7 +640,14 @@ class StateHA:
             'W': 'humrat',
             'R': 'relhum',
             'B': 'wetbulb',
-            'D': 'dewpoint'
+            'D': 'dewpoint',
+            'V': 'vol',
+            'H': 'enthalpy',
+            'S': 'entropy',
+            'C': 'cp',
+            'M': 'viscosity',
+            'K': 'conductivity',
+            'L': 'prandtl'
         }
         
         # Set properties using our property setters
@@ -791,43 +907,59 @@ class StatePROPS:
 
     @property
     def enthalpy(self):
+        if 'enthalpy' in self._constraints_set:
+            return self._enthalpy
         if len(self._constraints_set) == 2 and self._fluid is not None:
             return self.get_prop('H')
         return None
 
     @enthalpy.setter
+    @state_setter_PROPS
+    @validate_input_props
     def enthalpy(self, value):
-        raise AttributeError("enthalpy cannot be set directly")
+        self._enthalpy = value
 
     @property
     def entropy(self):
+        if 'entropy' in self._constraints_set:
+            return self._entropy
         if len(self._constraints_set) == 2 and self._fluid is not None:
             return self.get_prop('S')
         return None
 
     @entropy.setter
+    @state_setter_PROPS
+    @validate_input_props
     def entropy(self, value):
-        raise AttributeError("entropy cannot be set directly")
+        self._entropy = value
 
     @property
     def cp(self):
+        if 'cp' in self._constraints_set:
+            return self._cp
         if len(self._constraints_set) == 2 and self._fluid is not None:
             return self.get_prop('C')
         return None
 
     @cp.setter
+    @state_setter_PROPS
+    @validate_input_props
     def cp(self, value):
-        raise AttributeError("cp cannot be set directly")
+        self._cp = value
 
     @property
     def cv(self):
+        if 'cv' in self._constraints_set:
+            return self._cv
         if len(self._constraints_set) == 2 and self._fluid is not None:
             return self.get_prop('O')
         return None
 
     @cv.setter
+    @state_setter_PROPS
+    @validate_input_props
     def cv(self, value):
-        raise AttributeError("cv cannot be set directly")
+        self._cv = value
 
     @property
     def constraints(self):
@@ -975,9 +1107,9 @@ class StatePROPS:
             if prop_name in prop_map:
                 try:
                     setattr(self, prop_map[prop_name], value)
-                except AttributeError as e:
-                    # Skip derived properties that cannot be set directly
-                    warnings.warn(f"Skipping {prop_name}: {str(e)}")
+                except ValueError as e:
+                    # Provide warning for properties that CoolProp rejects
+                    warnings.warn(f"Unable to set {prop_name}: {str(e)}")
         
         return self
 
