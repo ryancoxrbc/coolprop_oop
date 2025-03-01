@@ -210,6 +210,31 @@ class TestStatePROPS(unittest.TestCase):
         with self.assertRaisesRegex(TypeError, "fluid must be a string"):
             self.state.fluid = 123
 
+    def test_constraints_info(self):
+        """Test the constraints property includes status and edition."""
+        self.state.fluid = 'Water'
+        self.state.tempk = 300
+        self.state.press = 101325
+        
+        constraints = self.state.constraints
+        
+        # Check basic constraint properties
+        self.assertIsInstance(constraints, dict)
+        self.assertIn('properties', constraints)
+        self.assertIn('fluid', constraints)
+        self.assertIn('is_complete', constraints)
+        
+        # Check new fields: status and edition
+        self.assertIn('status', constraints)
+        self.assertIn('edition', constraints)
+        
+        # Verify fluid info
+        self.assertEqual(constraints['fluid'], 'Water')
+        self.assertTrue(constraints['is_complete'])
+        
+        # Reset for next tests
+        self.setUp()
+
     def test_unsettable_properties(self):
         """Test that calculated properties cannot be set directly."""
         with self.assertRaisesRegex(AttributeError, "cannot be set directly"):

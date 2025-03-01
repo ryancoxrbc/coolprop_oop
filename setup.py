@@ -5,10 +5,10 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setup(
     name="coolprop-oop",
-    version="1.0.0",
+    version="1.1.0",
     author="Ryan Cox",
     author_email="ryanbradleycox@gmail.com",
-    description="Object-oriented wrapper for CoolProp thermodynamic properties",
+    description="A Pythonic object-oriented wrapper for CoolProp with property validation and state management",
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/ryancoxrbc/coolprop_oop",
@@ -19,6 +19,10 @@ setup(
         "Operating System :: OS Independent",
         "Topic :: Scientific/Engineering :: Physics",
         "Topic :: Scientific/Engineering :: Chemistry",
+        "Topic :: Scientific/Engineering :: Thermodynamics",
+        "Intended Audience :: Science/Research",
+        "Intended Audience :: Education",
+        "Development Status :: 5 - Production/Stable",
     ],
     python_requires=">=3.8",
     install_requires=[
