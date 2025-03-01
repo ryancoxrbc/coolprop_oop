@@ -251,6 +251,89 @@ def example_pure_fluid_error_handling():
     except ValueError as e:
         print(f"Error setting inconsistent properties: {e}")
 
+def example_using_derived_properties():
+    """
+    Example of using derived properties like enthalpy and entropy to define states
+    """
+    print("\n=== Using Derived Properties as Constraints ===")
+    
+    # === Humid Air Examples ===
+    print("\n--- Humid Air with Enthalpy ---")
+    
+    # Define humid air state using enthalpy
+    ha_state = StateHA()
+    ha_state.press = 101325    # Pressure in Pa
+    ha_state.relhum = 0.5      # Relative humidity (0-1)
+    ha_state.enthalpy = 50000  # Enthalpy in J/kg
+    
+    print(f"Set properties: pressure, relative humidity, enthalpy")
+    print(f"Calculated temperature: {ha_state.tempc:.2f}°C")
+    print(f"Calculated humidity ratio: {ha_state.humrat:.6f} kg/kg")
+    print(f"Entropy: {ha_state.entropy:.2f} J/kg-K")
+    
+    # Define humid air state using entropy
+    print("\n--- Humid Air with Entropy ---")
+    ha_state2 = StateHA()
+    ha_state2.press = 101325   # Pressure in Pa
+    ha_state2.tempc = 25       # Temperature in °C
+    ha_state2.entropy = 200    # Entropy in J/kg-K
+    
+    print(f"Set properties: pressure, temperature, entropy")
+    print(f"Calculated relative humidity: {ha_state2.relhum * 100:.1f}%")
+    print(f"Calculated humidity ratio: {ha_state2.humrat:.6f} kg/kg")
+    print(f"Enthalpy: {ha_state2.enthalpy:.2f} J/kg")
+    
+    # Define humid air state using relative humidity (replacing density example)
+    print("\n--- Humid Air with Relative Humidity ---")
+    ha_state3 = StateHA()
+    ha_state3.press = 101325     # Pressure in Pa
+    ha_state3.tempc = 30         # Temperature in °C
+    ha_state3.relhum = 0.6       # Relative humidity (60%)
+    
+    print(f"Set properties: pressure, temperature, relative humidity")
+    print(f"Calculated humidity ratio: {ha_state3.humrat:.6f} kg/kg")
+    print(f"Calculated enthalpy: {ha_state3.enthalpy:.2f} J/kg")
+    print(f"Calculated density: {ha_state3.density:.4f} kg/m³")
+    
+    # === Pure Fluid Examples ===
+    print("\n--- Pure Fluid with Enthalpy ---")
+    
+    # Define water state using enthalpy instead of temperature
+    water = StatePROPS(fluid='Water')
+    water.press = 200000     # Pressure in Pa (2 bar)
+    water.enthalpy = 2675000 # Enthalpy in J/kg
+    
+    print(f"Set properties for water: pressure, enthalpy")
+    print(f"Calculated temperature: {water.tempc:.2f}°C")
+    print(f"Calculated density: {water.dens:.3f} kg/m³")
+    print(f"Quality: {water.quality:.4f}")  # Should be in two-phase region
+    
+    # Define refrigerant state using entropy
+    print("\n--- Refrigerant with Entropy ---")
+    r134a = StatePROPS(fluid='R134a')
+    r134a.press = 500000    # Pressure in Pa (5 bar)
+    r134a.entropy = 1600    # Entropy in J/kg-K
+    
+    print(f"Set properties for R134a: pressure, entropy")
+    print(f"Calculated temperature: {r134a.tempc:.2f}°C")
+    print(f"Calculated enthalpy: {r134a.enthalpy:.2f} J/kg")
+    print(f"Quality: {r134a.quality:.4f}")
+    
+    # Using specific heat capacity as a constraint
+    print("\n--- Fluid with Specific Heat Capacity ---")
+    try:
+        # This might fail depending on the CoolProp implementation
+        fluid = StatePROPS(fluid='Nitrogen')
+        fluid.press = 101325   # Pressure in Pa
+        fluid.cp = 1040        # Specific heat capacity in J/kg-K
+        
+        print(f"Set properties for Nitrogen: pressure, specific heat")
+        print(f"Calculated temperature: {fluid.tempc:.2f}°C")
+        print(f"Calculated enthalpy: {fluid.enthalpy:.2f} J/kg")
+    except ValueError as e:
+        print(f"Note: Some property combinations may not be valid for all fluids")
+        print(f"Error: {e}")
+
 def run_all_examples():
     """Run all examples"""
     print("=== CoolProp-OOP Usage Examples ===")
@@ -265,6 +348,9 @@ def run_all_examples():
     example_refrigerant_properties()
     example_two_phase_properties()
     example_pure_fluid_error_handling()
+    
+    # Derived properties examples
+    example_using_derived_properties()
     
     print("\n=== All examples completed successfully! ===")
 

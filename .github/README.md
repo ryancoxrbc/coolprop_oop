@@ -10,6 +10,7 @@ An object-oriented wrapper for [CoolProp](http://www.coolprop.org/) thermodynami
 
 - **Object-oriented interface** to CoolProp's functionality
 - **Property validation** to prevent physically impossible states
+- **All thermodynamic properties are directly settable** - enthalpy, entropy, viscosity, and any other property can be used as a constraint
 - **Automatic caching** of calculated properties for better performance
 - Support for both **Humid Air** (`StateHA`) and **Pure Fluids** (`StatePROPS`)
 - Comprehensive **state validation** with helpful error messages
@@ -44,6 +45,13 @@ print(f"Density: {state.density:.4f} kg/m³")
 
 # Check which properties are currently constraining the state
 print(f"Constraints: {state.constraints}")  # ['press', 'relhum', 'tempc']
+
+# You can also set properties like enthalpy directly
+state2 = StateHA()
+state2.press = 101325   # Pressure in Pa
+state2.relhum = 0.7     # Relative humidity (0-1)
+state2.enthalpy = 50000 # Enthalpy in J/kg
+print(f"Temperature from enthalpy: {state2.tempc:.1f}°C")
 ```
 
 ### Pure Fluid Properties
@@ -67,6 +75,13 @@ print(f"Quality: {state.quality}")  # None if not in two-phase region
 constraints = state.constraints
 print(f"Fluid state: {constraints['status']}")  # e.g., 'liquid', 'gas', 'two_phase'
 print(f"Set properties: {', '.join(constraints['properties'])}")
+
+# You can also define state using enthalpy and pressure
+state2 = StatePROPS(fluid='R134a')
+state2.press = 500000   # Pressure in Pa
+state2.enthalpy = 420000 # Enthalpy in J/kg
+print(f"Temperature: {state2.tempc:.1f}°C")
+print(f"Quality: {state2.quality}")  # Vapor quality if in two-phase region
 ```
 
 ### Error Handling and Validation
@@ -79,6 +94,15 @@ try:
     state.tempc = -300  # Below absolute zero
 except ValueError as e:
     print(f"Error: {e}")  # "Error: Temperature cannot be below absolute zero"
+
+# The library lets CoolProp perform advanced state validation
+try:
+    state = StatePROPS(fluid='Water')
+    state.tempc = 25
+    # Try to set incompatible properties - CoolProp will reject this
+    state.entropy = 10000
+except ValueError as e:
+    print(f"Error: {e}")
 ```
 
 ## Contributing
@@ -97,4 +121,4 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ## Acknowledgments
 
-- [CoolProp](http://www.coolprop.org/) for providing the underlying thermodynamic property calculations 
+- [CoolProp](http://www.coolprop.org/) for providing the underlying thermodynamic property calculations

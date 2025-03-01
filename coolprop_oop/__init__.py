@@ -10,6 +10,7 @@ Features:
     - Object-oriented interface with property-based getters and setters
     - Automatic property validation to prevent physically impossible states
     - State constraint management to prevent overconstraining the system
+    - All thermodynamic properties are directly settable (enthalpy, entropy, viscosity, etc.)
     - Automatic property calculation and caching for better performance
     - Support for both humid air and pure fluid calculations
     - Consistent unit system (SI units)
@@ -32,9 +33,16 @@ Example Usage:
     >>> print(f"{water.tempc:.1f}°C, {water.press/1e5:.2f} bar, ρ={water.dens:.1f} kg/m³")
     100.0°C, 1.01 bar, ρ=958.4 kg/m³
 
+    # Setting derived properties directly
+    >>> water2 = StatePROPS(fluid='Water')
+    >>> water2.press = 101325   # Pressure in Pa
+    >>> water2.enthalpy = 2000000  # Enthalpy in J/kg
+    >>> print(f"Temperature: {water2.tempc:.1f}°C, Quality: {water2.quality:.3f}")
+
 For more examples, see the examples directory in the package repository.
 """
 
 from .coolprop_oop import StateHA, StatePROPS
 
+__version__ = "1.2.0"
 __all__ = ['StateHA', 'StatePROPS'] 
