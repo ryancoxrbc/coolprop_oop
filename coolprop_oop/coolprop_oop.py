@@ -842,6 +842,8 @@ class StatePROPS:
                 - 'properties': List of thermodynamic property names that are set as constraints
                 - 'fluid': The currently set fluid name or None if not set
                 - 'is_complete': Boolean indicating if the state is fully defined
+                - 'status': Status of the fluid (e.g., 'liquid', 'gas', 'supercritical', etc.)
+                - 'edition': Edition of CoolProp being used
         """
         if not hasattr(self, '_constraints_set'):
             props = []
@@ -850,10 +852,63 @@ class StatePROPS:
         
         fluid = self._fluid if hasattr(self, '_fluid') else None
         
+        # Check if the state is complete to determine status
+        status = None
+        edition = None
+        
+        if len(props) == 2 and fluid is not None:
+            try:
+                # Get status of the fluid at the specified state
+                if 'quality' in props:
+                    # If quality is specified, we know the status
+                    quality_val = getattr(self, '_quality')
+                    if quality_val == 0:
+                        status = 'saturated_liquid'
+                    elif quality_val == 1:
+                        status = 'saturated_vapor'
+                    else:
+                        status = 'two_phase'
+                else:
+                    # Try to get phase information
+                    try:
+                        quality = self.quality
+                        if quality == -1.0:
+                            # Check pressure against critical pressure
+                            if 'press' in props:
+                                press_val = getattr(self, '_press')
+                                if press_val > self.get_prop('pcrit'):
+                                    status = 'supercritical'
+                                else:
+                                    # Check temperature
+                                    if 'tempk' in props or 'tempc' in props:
+                                        temp_val = getattr(self, '_tempk')
+                                        if temp_val > self.get_prop('Tcrit'):
+                                            status = 'supercritical'
+                                        else:
+                                            status = 'liquid' 
+                            else:
+                                status = 'single_phase'
+                        else:
+                            status = 'two_phase'
+                    except:
+                        status = 'single_phase'
+                
+                # Get CoolProp version/edition information
+                try:
+                    from CoolProp import __version__ as cp_version
+                    edition = cp_version
+                except:
+                    edition = "Unknown"
+            except:
+                status = "Unknown"
+                edition = "Unknown"
+        
         return {
             'properties': props,
             'fluid': fluid,
-            'is_complete': len(props) == 2 and fluid is not None
+            'is_complete': len(props) == 2 and fluid is not None,
+            'status': status,
+            'edition': edition
         }
 
     @property
