@@ -238,13 +238,122 @@ class TestStatePROPS(unittest.TestCase):
     def test_unsettable_properties(self):
         """Test that calculated properties cannot be set directly."""
         with self.assertRaisesRegex(AttributeError, "cannot be set directly"):
-            self.state.enthalpy = 1000
-        with self.assertRaisesRegex(AttributeError, "cannot be set directly"):
-            self.state.entropy = 1000
-        with self.assertRaisesRegex(AttributeError, "cannot be set directly"):
             self.state.cp = 1000
         with self.assertRaisesRegex(AttributeError, "cannot be set directly"):
             self.state.cv = 1000
+
+    def test_settable_properties(self):
+        """Test that previously calculated-only properties can now be set directly."""
+        # Setup a state with basic properties
+        state = StatePROPS(fluid='Water')
+        state.tempc = 25
+        state.press = 101325
+        
+        # Get initial values
+        initial_enthalpy = state.enthalpy
+        initial_entropy = state.entropy
+        initial_viscosity = state.viscosity
+        initial_conductivity = state.conductivity
+        initial_prandtl = state.prandtl
+        
+        # Create a new state and set properties that were formerly calculated-only
+        state2 = StatePROPS(fluid='Water')
+        
+        # Test enthalpy can be set
+        state2.press = 101325
+        state2.enthalpy = initial_enthalpy
+        self.assertAlmostEqual(state2.enthalpy, initial_enthalpy, places=0)
+        self.assertAlmostEqual(state2.tempc, 25, places=0)
+        
+        # Reset and test entropy can be set
+        state2 = StatePROPS(fluid='Water')
+        state2.press = 101325
+        state2.entropy = initial_entropy
+        self.assertAlmostEqual(state2.entropy, initial_entropy, places=0)
+        
+        # Reset and test viscosity can be set
+        state2 = StatePROPS(fluid='Water')
+        state2.press = 101325
+        state2.viscosity = initial_viscosity
+        self.assertAlmostEqual(state2.viscosity, initial_viscosity, places=6)
+        
+        # Reset and test conductivity can be set
+        state2 = StatePROPS(fluid='Water')
+        state2.press = 101325
+        state2.conductivity = initial_conductivity
+        self.assertAlmostEqual(state2.conductivity, initial_conductivity, places=6)
+        
+        # Reset and test prandtl can be set
+        state2 = StatePROPS(fluid='Water')
+        state2.press = 101325
+        state2.prandtl = initial_prandtl
+        self.assertAlmostEqual(state2.prandtl, initial_prandtl, places=6)
+
+
+class TestStateHASettable(unittest.TestCase):
+    """Test cases for newly settable properties in StateHA."""
+    
+    def setUp(self):
+        warnings.filterwarnings('ignore', category=DeprecationWarning)
+        self.state = StateHA()
+        
+    def test_settable_properties(self):
+        """Test that previously calculated-only properties can now be set directly."""
+        # Set up a state with the three standard properties
+        state = StateHA()
+        state.press = 101325
+        state.tempc = 25
+        state.relhum = 0.5
+        
+        # Get initial values
+        initial_enthalpy = state.enthalpy
+        initial_entropy = state.entropy
+        initial_viscosity = state.viscosity
+        initial_conductivity = state.conductivity
+        initial_prandtl = state.prandtl
+        
+        # Test viscosity can be set
+        state2 = StateHA()
+        state2.press = 101325
+        state2.tempc = 25
+        state2.viscosity = initial_viscosity
+        self.assertAlmostEqual(state2.viscosity, initial_viscosity, places=6)
+        
+        # Test conductivity can be set
+        state3 = StateHA()
+        state3.press = 101325
+        state3.tempc = 25
+        state3.conductivity = initial_conductivity
+        self.assertAlmostEqual(state3.conductivity, initial_conductivity, places=6)
+        
+        # Test prandtl can be set
+        state4 = StateHA()
+        state4.press = 101325
+        state4.tempc = 25
+        state4.prandtl = initial_prandtl
+        self.assertAlmostEqual(state4.prandtl, initial_prandtl, places=6)
+        
+    def test_validation_errors(self):
+        """Test validation for newly settable properties."""
+        state = StateHA()
+        
+        # Test viscosity validation
+        with self.assertRaisesRegex(ValueError, "Viscosity must be positive"):
+            state.viscosity = -0.1
+        with self.assertRaisesRegex(ValueError, "Viscosity .* exceeds reasonable range"):
+            state.viscosity = 2.0  # > 1 Pa⋅s
+            
+        # Test conductivity validation
+        with self.assertRaisesRegex(ValueError, "Conductivity must be positive"):
+            state.conductivity = -0.1
+        with self.assertRaisesRegex(ValueError, "Conductivity .* exceeds reasonable range"):
+            state.conductivity = 2.0  # > 1 W/m-K
+            
+        # Test prandtl validation
+        with self.assertRaisesRegex(ValueError, "Prandtl number must be positive"):
+            state.prandtl = -0.1
+        with self.assertRaisesRegex(ValueError, "Prandtl number .* exceeds reasonable range"):
+            state.prandtl = 2000  # > 1000
 
 
 if __name__ == '__main__':
