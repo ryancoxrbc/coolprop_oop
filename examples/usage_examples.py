@@ -283,17 +283,17 @@ def example_using_derived_properties():
     print(f"Calculated humidity ratio: {ha_state2.humrat:.6f} kg/kg")
     print(f"Enthalpy: {ha_state2.enthalpy:.2f} J/kg")
     
-    # Define humid air state using density
-    print("\n--- Humid Air with Density ---")
+    # Define humid air state using relative humidity (replacing density example)
+    print("\n--- Humid Air with Relative Humidity ---")
     ha_state3 = StateHA()
-    ha_state3.press = 101325   # Pressure in Pa
-    ha_state3.tempc = 30       # Temperature in °C
-    ha_state3.density = 1.15   # Density in kg/m³
+    ha_state3.press = 101325     # Pressure in Pa
+    ha_state3.tempc = 30         # Temperature in °C
+    ha_state3.relhum = 0.6       # Relative humidity (60%)
     
-    print(f"Set properties: pressure, temperature, density")
-    print(f"Calculated relative humidity: {ha_state3.relhum * 100:.1f}%")
+    print(f"Set properties: pressure, temperature, relative humidity")
     print(f"Calculated humidity ratio: {ha_state3.humrat:.6f} kg/kg")
-    print(f"Enthalpy: {ha_state3.enthalpy:.2f} J/kg")
+    print(f"Calculated enthalpy: {ha_state3.enthalpy:.2f} J/kg")
+    print(f"Calculated density: {ha_state3.density:.4f} kg/m³")
     
     # === Pure Fluid Examples ===
     print("\n--- Pure Fluid with Enthalpy ---")

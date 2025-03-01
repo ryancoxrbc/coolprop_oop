@@ -44,4 +44,5 @@ For more examples, see the examples directory in the package repository.
 
 from .coolprop_oop import StateHA, StatePROPS
 
+__version__ = "1.2.0"
 __all__ = ['StateHA', 'StatePROPS'] 

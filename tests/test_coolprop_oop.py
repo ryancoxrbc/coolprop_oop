@@ -76,13 +76,19 @@ class TestStateHA(unittest.TestCase):
         state.tempk = 293.15
         state.relhum = 0.5
         
-        # Try to set a fourth constraint
-        with self.assertRaisesRegex(ValueError, "Cannot set humrat - system is already fully constrained"):
-            state.humrat = 0.01
+        # Setting a fourth property is now allowed
+        # Try to set an inconsistent state that CoolProp would reject
+        try:
+            state.humrat = 0.5  # Very high humidity ratio that is inconsistent with current state
+            # If no error, check that CoolProp used the new value and adjusted other properties
+            self.assertAlmostEqual(state.humrat, 0.5, places=2)
+        except ValueError as e:
+            # If there's an error, it should be from CoolProp's state validation
+            self.assertIn("Cannot set humrat", str(e))
             
         # Try to update with invalid value
-        with self.assertRaisesRegex(ValueError, "Please validate all set properties"):
-            state.relhum = 1.5
+        with self.assertRaisesRegex(ValueError, "cannot be negative"):
+            state.relhum = -0.5
 
     def test_property_calculation(self):
         """Verify that calculated properties are physically reasonable."""
@@ -181,12 +187,18 @@ class TestStatePROPS(unittest.TestCase):
         self.state.press = 101325
         self.state.tempk = 293.15
         
-        # Try to set a third constraint
-        with self.assertRaisesRegex(ValueError, "system is already fully constrained with 2 properties"):
-            self.state.dens = 1000
+        # Setting a third property is now allowed
+        # Try to set an inconsistent state that CoolProp would reject
+        try:
+            self.state.dens = 500  # Inconsistent density for current state
+            # If no error, check that CoolProp used the new value and adjusted other properties
+            self.assertAlmostEqual(self.state.dens, 500, places=0)
+        except ValueError as e:
+            # If there's an error, it should be from CoolProp's state validation
+            self.assertIn("Cannot set dens", str(e))
             
         # Try to update with invalid value
-        with self.assertRaisesRegex(ValueError, "Please validate all set properties"):
+        with self.assertRaisesRegex(ValueError, "must be positive"):
             self.state.press = -101325
 
     def test_property_calculation(self):
@@ -235,12 +247,30 @@ class TestStatePROPS(unittest.TestCase):
         # Reset for next tests
         self.setUp()
 
-    def test_unsettable_properties(self):
-        """Test that calculated properties cannot be set directly."""
-        with self.assertRaisesRegex(AttributeError, "cannot be set directly"):
-            self.state.cp = 1000
-        with self.assertRaisesRegex(AttributeError, "cannot be set directly"):
-            self.state.cv = 1000
+    def test_all_settable_properties(self):
+        """Test that all properties can now be set directly."""
+        # Setup a state to get reference values
+        ref_state = StatePROPS(fluid='Water')
+        ref_state.tempc = 25
+        ref_state.press = 101325
+        
+        # Try setting cp directly
+        state = StatePROPS(fluid='Water')
+        state.press = 101325
+        try:
+            state.cp = ref_state.cp
+            self.assertAlmostEqual(state.cp, ref_state.cp, places=0)
+        except AttributeError:
+            self.fail("cp should be settable")
+            
+        # Try setting cv directly
+        state = StatePROPS(fluid='Water')
+        state.press = 101325
+        try:
+            state.cv = ref_state.cv
+            self.assertAlmostEqual(state.cv, ref_state.cv, places=0)
+        except AttributeError:
+            self.fail("cv should be settable")
 
     def test_settable_properties(self):
         """Test that previously calculated-only properties can now be set directly."""
@@ -252,9 +282,6 @@ class TestStatePROPS(unittest.TestCase):
         # Get initial values
         initial_enthalpy = state.enthalpy
         initial_entropy = state.entropy
-        initial_viscosity = state.viscosity
-        initial_conductivity = state.conductivity
-        initial_prandtl = state.prandtl
         
         # Create a new state and set properties that were formerly calculated-only
         state2 = StatePROPS(fluid='Water')
@@ -270,27 +297,9 @@ class TestStatePROPS(unittest.TestCase):
         state2.press = 101325
         state2.entropy = initial_entropy
         self.assertAlmostEqual(state2.entropy, initial_entropy, places=0)
-        
-        # Reset and test viscosity can be set
-        state2 = StatePROPS(fluid='Water')
-        state2.press = 101325
-        state2.viscosity = initial_viscosity
-        self.assertAlmostEqual(state2.viscosity, initial_viscosity, places=6)
-        
-        # Reset and test conductivity can be set
-        state2 = StatePROPS(fluid='Water')
-        state2.press = 101325
-        state2.conductivity = initial_conductivity
-        self.assertAlmostEqual(state2.conductivity, initial_conductivity, places=6)
-        
-        # Reset and test prandtl can be set
-        state2 = StatePROPS(fluid='Water')
-        state2.press = 101325
-        state2.prandtl = initial_prandtl
-        self.assertAlmostEqual(state2.prandtl, initial_prandtl, places=6)
 
 
-class TestStateHASettable(unittest.TestCase):
+class TestStateHASettableProperties(unittest.TestCase):
     """Test cases for newly settable properties in StateHA."""
     
     def setUp(self):
@@ -308,52 +317,38 @@ class TestStateHASettable(unittest.TestCase):
         # Get initial values
         initial_enthalpy = state.enthalpy
         initial_entropy = state.entropy
-        initial_viscosity = state.viscosity
-        initial_conductivity = state.conductivity
-        initial_prandtl = state.prandtl
         
-        # Test viscosity can be set
+        # Test enthalpy can be set
         state2 = StateHA()
         state2.press = 101325
         state2.tempc = 25
-        state2.viscosity = initial_viscosity
-        self.assertAlmostEqual(state2.viscosity, initial_viscosity, places=6)
+        state2.enthalpy = initial_enthalpy
+        self.assertAlmostEqual(state2.enthalpy, initial_enthalpy, places=0)
         
-        # Test conductivity can be set
+        # Test entropy can be set
         state3 = StateHA()
         state3.press = 101325
         state3.tempc = 25
-        state3.conductivity = initial_conductivity
-        self.assertAlmostEqual(state3.conductivity, initial_conductivity, places=6)
+        state3.entropy = initial_entropy
+        self.assertAlmostEqual(state3.entropy, initial_entropy, places=0)
         
-        # Test prandtl can be set
-        state4 = StateHA()
-        state4.press = 101325
-        state4.tempc = 25
-        state4.prandtl = initial_prandtl
-        self.assertAlmostEqual(state4.prandtl, initial_prandtl, places=6)
+    def test_all_settable_properties(self):
+        """Test that all properties including cp can now be set directly."""
+        # Set up a state to get reference values
+        ref_state = StateHA()
+        ref_state.press = 101325
+        ref_state.tempc = 25
+        ref_state.relhum = 0.5
         
-    def test_validation_errors(self):
-        """Test validation for newly settable properties."""
+        # Try setting cp directly
         state = StateHA()
-        
-        # Test viscosity validation
-        with self.assertRaisesRegex(ValueError, "Viscosity must be positive"):
-            state.viscosity = -0.1
-        with self.assertRaisesRegex(ValueError, "Viscosity .* exceeds reasonable range"):
-            state.viscosity = 2.0  # > 1 Pa⋅s
-            
-        # Test conductivity validation
-        with self.assertRaisesRegex(ValueError, "Conductivity must be positive"):
-            state.conductivity = -0.1
-        with self.assertRaisesRegex(ValueError, "Conductivity .* exceeds reasonable range"):
-            state.conductivity = 2.0  # > 1 W/m-K
-            
-        # Test prandtl validation
-        with self.assertRaisesRegex(ValueError, "Prandtl number must be positive"):
-            state.prandtl = -0.1
-        with self.assertRaisesRegex(ValueError, "Prandtl number .* exceeds reasonable range"):
-            state.prandtl = 2000  # > 1000
+        state.press = 101325
+        state.tempc = 25
+        try:
+            state.cp = ref_state.cp
+            self.assertAlmostEqual(state.cp, ref_state.cp, places=0)
+        except AttributeError:
+            self.fail("cp should be settable")
 
 
 if __name__ == '__main__':

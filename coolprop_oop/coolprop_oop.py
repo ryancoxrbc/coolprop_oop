@@ -468,6 +468,10 @@ class StateHA:
 
     @property
     def dewpoint(self):
+        if 'dewpoint' in self._constraints_set:
+            return self._dewpoint
+        if len(self._constraints_set) == 3:
+            return self.get_prop('D')
         return self._dewpoint
 
     @dewpoint.setter
