@@ -475,6 +475,21 @@ class StateHA:
     def cp(self, value):
         raise AttributeError("cp cannot be set directly")
 
+    @property
+    def constraints(self):
+        """
+        Returns the current set of properties constraining the state.
+        
+        This property allows checking which values are currently pinning the thermodynamic state.
+        For a humid air state to be fully defined, it needs exactly 3 constraints.
+        
+        Returns:
+            list: A sorted list of property names that are currently set as constraints.
+        """
+        if not hasattr(self, '_constraints_set'):
+            return []
+        return sorted(list(self._constraints_set))
+
     def set(self, props):
         """
         DEPRECATED: Direct property setting is now preferred over the set method.
@@ -784,6 +799,21 @@ class StatePROPS:
         raise AttributeError("cv cannot be set directly")
 
     @property
+    def constraints(self):
+        """
+        Returns the current set of properties constraining the state.
+        
+        This property allows checking which values are currently pinning the thermodynamic state.
+        For a pure fluid state to be fully defined, it needs exactly 2 constraints plus a fluid type.
+        
+        Returns:
+            list: A sorted list of property names that are currently set as constraints.
+        """
+        if not hasattr(self, '_constraints_set'):
+            return []
+        return sorted(list(self._constraints_set))
+
+    @property
     def fluid(self):
         return self._fluid
 
@@ -792,91 +822,6 @@ class StatePROPS:
         if not isinstance(value, str):
             raise TypeError("fluid must be a string")
         self._fluid = value
-
-    def test_state_validity(self, current_props, new_prop, new_value):
-        """
-        Test if the current state properties are physically valid using PropsSI.
-        
-        Args:
-            current_props (set): Set of currently set property names
-            new_prop (str): Name of the new property being set
-            new_value (float): Value of the new property
-        
-        Returns:
-            bool: True if the state is valid, False otherwise.
-        
-        Raises:
-            ValueError: If the combination of properties would create an invalid state,
-                      with the specific error message from CoolProp.
-        """
-        if not self._fluid:
-            raise ValueError("Fluid type must be set before validating state")
-            
-        try:
-            # Build a test props list with current properties and new value
-            test_props = []
-            for prop in current_props:
-                coolprop_name = self._prop_map[prop]
-                value = getattr(self, f"_{prop}")
-                # Handle Celsius conversion
-                if prop == 'tempc':
-                    value = value + 273.15
-                test_props.extend([coolprop_name, value])
-            
-            # Add the new property
-            coolprop_new_prop = self._prop_map[new_prop]
-            new_value_converted = new_value + 273.15 if new_prop == 'tempc' else new_value
-            test_props.extend([coolprop_new_prop, new_value_converted])
-            test_props.append(self._fluid)
-            
-            # Try to calculate one of the input properties to validate state
-            input_prop = self._prop_map[list(current_props)[0]]  # Use first property from current set
-            PropsSI(input_prop, *test_props)
-            return True
-            
-        except ValueError as e:
-            # Re-raise with the CoolProp error message for better explanation
-            raise ValueError(f"Invalid state: {str(e)}") from None
-
-    def get_prop(self, prop):
-        """
-        Get a specific property using PropsSI.
-        
-        Args:
-            prop (str): The property to retrieve. Valid options include:
-                - 'T': Temperature [K]
-                - 'P': Pressure [Pa]
-                - 'D': Density [kg/m³]
-                - 'H': Specific enthalpy [J/kg]
-                - 'S': Specific entropy [J/kg-K]
-                - 'Q': Vapor quality [-]
-                - 'C': Specific heat capacity at constant pressure [J/kg-K]
-                - 'O': Specific heat capacity at constant volume [J/kg-K]
-            
-        Returns:
-            float: The value of the requested property.
-        
-        Raises:
-            ValueError: If the state is not fully defined (needs 2 constraints and fluid type)
-        """
-        if len(self._constraints_set) < 2:
-            raise ValueError("Cannot calculate properties until state is fully defined with 2 constraints")
-            
-        if not self._fluid:
-            raise ValueError("Fluid type must be set before calculating properties")
-        
-        # Build props list from constraints set
-        props = []
-        for constraint in self._constraints_set:
-            coolprop_name = self._prop_map[constraint]
-            value = getattr(self, f"_{constraint}")
-            # Handle Celsius conversion
-            if constraint == 'tempc':
-                value = value + 273.15
-            props.extend([coolprop_name, value])
-        
-        props.append(self._fluid)
-        return PropsSI(prop, *props)
 
     def set(self, props):
         """
@@ -927,3 +872,88 @@ class StatePROPS:
                 setattr(self, prop_map[prop_name], value)
         
         return self
+
+    def get_prop(self, prop):
+        """
+        Get a specific property using PropsSI.
+        
+        Args:
+            prop (str): The property to retrieve. Valid options include:
+                - 'T': Temperature [K]
+                - 'P': Pressure [Pa]
+                - 'D': Density [kg/m³]
+                - 'H': Specific enthalpy [J/kg]
+                - 'S': Specific entropy [J/kg-K]
+                - 'Q': Vapor quality [-]
+                - 'C': Specific heat capacity at constant pressure [J/kg-K]
+                - 'O': Specific heat capacity at constant volume [J/kg-K]
+            
+        Returns:
+            float: The value of the requested property.
+        
+        Raises:
+            ValueError: If the state is not fully defined (needs 2 constraints and fluid type)
+        """
+        if len(self._constraints_set) < 2:
+            raise ValueError("Cannot calculate properties until state is fully defined with 2 constraints")
+            
+        if not self._fluid:
+            raise ValueError("Fluid type must be set before calculating properties")
+        
+        # Build props list from constraints set
+        props = []
+        for constraint in self._constraints_set:
+            coolprop_name = self._prop_map[constraint]
+            value = getattr(self, f"_{constraint}")
+            # Handle Celsius conversion
+            if constraint == 'tempc':
+                value = value + 273.15
+            props.extend([coolprop_name, value])
+        
+        props.append(self._fluid)
+        return PropsSI(prop, *props)
+
+    def test_state_validity(self, current_props, new_prop, new_value):
+        """
+        Test if the current state properties are physically valid using PropsSI.
+        
+        Args:
+            current_props (set): Set of currently set property names
+            new_prop (str): Name of the new property being set
+            new_value (float): Value of the new property
+        
+        Returns:
+            bool: True if the state is valid, False otherwise.
+        
+        Raises:
+            ValueError: If the combination of properties would create an invalid state,
+                      with the specific error message from CoolProp.
+        """
+        if not self._fluid:
+            raise ValueError("Fluid type must be set before validating state")
+            
+        try:
+            # Build a test props list with current properties and new value
+            test_props = []
+            for prop in current_props:
+                coolprop_name = self._prop_map[prop]
+                value = getattr(self, f"_{prop}")
+                # Handle Celsius conversion
+                if prop == 'tempc':
+                    value = value + 273.15
+                test_props.extend([coolprop_name, value])
+            
+            # Add the new property
+            coolprop_new_prop = self._prop_map[new_prop]
+            new_value_converted = new_value + 273.15 if new_prop == 'tempc' else new_value
+            test_props.extend([coolprop_new_prop, new_value_converted])
+            test_props.append(self._fluid)
+            
+            # Try to calculate one of the input properties to validate state
+            input_prop = self._prop_map[list(current_props)[0]]  # Use first property from current set
+            PropsSI(input_prop, *test_props)
+            return True
+            
+        except ValueError as e:
+            # Re-raise with the CoolProp error message for better explanation
+            raise ValueError(f"Invalid state: {str(e)}") from None
