@@ -12,7 +12,7 @@ An object-oriented wrapper for [CoolProp](http://www.coolprop.org/) thermodynami
 - **Property validation** to prevent physically impossible states
 - **All thermodynamic properties are directly settable** - enthalpy, entropy, viscosity, and any other property can be used as a constraint
 - **Automatic caching** of calculated properties for better performance
-- Support for both **Humid Air** (`StateHA`) and **Pure Fluids** (`StatePROPS`)
+- Support for both **Humid Air** (`StateHA`) and **Pure Fluids** (`StateProps`)
 - Comprehensive **state validation** with helpful error messages
 - **Fully Pythonic API** with property-based getters and setters
 
@@ -57,10 +57,10 @@ print(f"Temperature from enthalpy: {state2.tempc:.1f}°C")
 ### Pure Fluid Properties
 
 ```python
-from coolprop_oop import StatePROPS
+from coolprop_oop import StateProps
 
 # Create a state for water (OOP style, recommended)
-state = StatePROPS(fluid='Water')  # Set fluid first
+state = StateProps(fluid='Water')  # Set fluid first
 state.tempc = 100     # Temperature in °C
 state.press = 101325  # Pressure in Pa
 
@@ -77,7 +77,7 @@ print(f"Fluid state: {constraints['status']}")  # e.g., 'liquid', 'gas', 'two_ph
 print(f"Set properties: {', '.join(constraints['properties'])}")
 
 # You can also define state using enthalpy and pressure
-state2 = StatePROPS(fluid='R134a')
+state2 = StateProps(fluid='R134a')
 state2.press = 500000   # Pressure in Pa
 state2.enthalpy = 420000 # Enthalpy in J/kg
 print(f"Temperature: {state2.tempc:.1f}°C")
@@ -97,7 +97,7 @@ except ValueError as e:
 
 # The library lets CoolProp perform advanced state validation
 try:
-    state = StatePROPS(fluid='Water')
+    state = StateProps(fluid='Water')
     state.tempc = 25
     # Try to set incompatible properties - CoolProp will reject this
     state.entropy = 10000

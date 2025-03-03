@@ -337,18 +337,20 @@ class StateHA:
         """
         Initialize a StateHA object for humid air properties.
         
-        Note:
-            While passing props at initialization is still supported for backwards compatibility,
-            it is recommended to set properties individually for better performance:
-                state = StateHA()
-                state.tempk = 293.15
-                state.press = 101325
-                state.relhum = 0.5
-        
         Args:
-            props (list, optional): DEPRECATED. Property inputs for HAPropsSI.
-                While still supported, direct property setting is preferred.
+            props (list, optional): Property inputs for HAPropsSI.
                 [prop1_name, prop1_value, prop2_name, prop2_value, prop3_name, prop3_value]
+                This format follows the HAPropsSI's parameter order.
+        
+        Example:
+            >>> # Create state at 25°C, 1 atm, 60% RH
+            >>> state = StateHA(['P', 101325, 'T', 298.15, 'R', 0.6])
+            
+            >>> # Alternatively, set properties directly (recommended)
+            >>> state = StateHA()
+            >>> state.press = 101325
+            >>> state.tempk = 298.15
+            >>> state.relhum = 0.6
         """
         self._tempk = None
         self._tempc = None
@@ -369,16 +371,6 @@ class StateHA:
         self._constraints_set = set()
         
         if props is not None:
-            warnings.warn(
-                "Initializing with props is deprecated and will be removed in version 2.0.0. "
-                "Use direct property setting instead:\n"
-                "    state = StateHA()\n"
-                "    state.tempk = value\n"
-                "    state.press = value\n"
-                "    state.relhum = value",
-                DeprecationWarning,
-                stacklevel=2
-            )
             self.set(props)
 
     @property
@@ -492,6 +484,11 @@ class StateHA:
     @state_setter_ha
     @validate_input_ha
     def vol(self, value):
+        if value <= 0:
+            raise ValueError("Specific volume must be positive")
+        if value > 1000:  # Very high specific volume
+            raise ValueError("Specific volume exceeding reasonable range (> 1000 m³/kg)")
+        # Store the volume value
         self._vol = value
 
     @property
@@ -610,11 +607,11 @@ class StateHA:
 
     def set(self, props):
         """
-        DEPRECATED: Direct property setting is now preferred over the set method.
-        
         Set the properties of the StateHA object using the provided inputs.
-        This method will be removed in version 2.0.0.
         
+        Note:
+            The direct property setting interface is generally more convenient:
+            
         Instead of:
             state.set(['T', 293.15, 'P', 101325, 'R', 0.5])
         Use:
@@ -629,14 +626,6 @@ class StateHA:
         Returns:
             StateHA: The current object for method chaining.
         """
-        warnings.warn(
-            "The set() method is deprecated and will be removed in version 2.0.0. "
-            "Use direct property setting instead (e.g., state.tempk = value).",
-            DeprecationWarning,
-            stacklevel=2
-        )
-        
-        self.props = props
         # Map CoolProp properties to our setter methods
         prop_map = {
             'T': 'tempk',
@@ -742,7 +731,7 @@ class StateHA:
             # Re-raise with the CoolProp error message for better explanation
             raise ValueError(f"Invalid state: {str(e)}") from None
 
-class StatePROPS:
+class StateProps:
     """
     A class representing the thermodynamic state of a pure fluid.
     
@@ -751,7 +740,7 @@ class StatePROPS:
     for easy access.
     
     Important:
-        For a StatePROPS object to be fully defined, you must:
+        For a StateProps object to be fully defined, you must:
         1. Set the fluid type with state.fluid = 'fluid_name'
         2. Set exactly 2 independent thermodynamic properties
     
@@ -765,11 +754,12 @@ class StatePROPS:
         quality (float): Vapor quality (0-1), or None if not in two-phase region
         cp (float): Specific heat capacity at constant pressure in J/kg-K
         cv (float): Specific heat capacity at constant volume in J/kg-K
+        vol (float): Specific volume in m³/kg (reciprocal of density)
         fluid (str): The working fluid name (must be set before other properties)
         
     Example:
         >>> # Create state for water at 25°C, 1 atm
-        >>> state = StatePROPS()
+        >>> state = StateProps()
         >>> state.fluid = 'Water'
         >>> state.tempc = 25
         >>> state.press = 101325
@@ -791,18 +781,17 @@ class StatePROPS:
     
     def __init__(self, props=None, fluid=None):
         """
-        Initialize a StatePROPS object for pure fluid properties.
+        Initialize a StateProps object for pure fluid properties.
         
         Args:
-            props (list, optional): DEPRECATED. Property inputs for PropsSI.
-                While still supported, direct property setting is preferred.
+            props (list, optional): Property inputs for PropsSI.
                 [prop1_name, prop1_value, prop2_name, prop2_value, fluid_name]
             fluid (str, optional): The working fluid name. If provided, sets the fluid immediately.
-                This is the recommended way to initialize a StatePROPS object.
+                This is the recommended way to initialize a StateProps object.
         
         Example:
             >>> # Recommended initialization
-            >>> state = StatePROPS(fluid='Water')
+            >>> state = StateProps(fluid='Water')
             >>> state.tempc = 25
             >>> state.press = 101325
         """
@@ -824,15 +813,6 @@ class StatePROPS:
             self.fluid = fluid
         
         if props is not None:
-            warnings.warn(
-                "Initializing with props is deprecated and will be removed in version 2.0.0. "
-                "Use direct property setting instead:\n"
-                "    state = StatePROPS(fluid='water')\n"
-                "    state.tempk = value\n"
-                "    state.press = value",
-                DeprecationWarning,
-                stacklevel=2
-            )
             self.set(props)
 
     @property
@@ -847,7 +827,7 @@ class StatePROPS:
     @state_setter_PROPS
     @validate_input_props
     def tempk(self, value):
-        self._tempk = value
+        self._tempk = float(value)
 
     @property
     def tempc(self):
@@ -855,13 +835,13 @@ class StatePROPS:
             return self._tempc
         if 'tempk' in self._constraints_set:
             return self._tempk - 273.15
-        return self.tempk - 273.15 if self.tempk is not None else None
+        return self.tempk - 273.15
 
     @tempc.setter
     @state_setter_PROPS
     @validate_input_props
     def tempc(self, value):
-        self._tempc = value
+        self._tempc = float(value)
         self._tempk = value + 273.15
 
     @property
@@ -966,6 +946,29 @@ class StatePROPS:
         self._cv = value
 
     @property
+    def vol(self):
+        """
+        Get the specific volume in m³/kg.
+        
+        Returns:
+            float: The specific volume (1/density) in m³/kg, or None if density isn't available.
+        """
+        if self.dens is not None:
+            return 1.0 / self.dens
+        return None
+    
+    @vol.setter
+    @state_setter_PROPS
+    @validate_input_props
+    def vol(self, value):
+        if value <= 0:
+            raise ValueError("Specific volume must be positive")
+        if value > 1000:  # Very high specific volume
+            raise ValueError("Specific volume exceeding reasonable range (> 1000 m³/kg)")
+        # Set density to 1/volume
+        self._dens = 1.0 / value
+
+    @property
     def constraints(self):
         """
         Returns the current set of properties constraining the state.
@@ -1059,32 +1062,25 @@ class StatePROPS:
 
     def set(self, props):
         """
-        DEPRECATED: Direct property setting is now preferred over the set method.
+        Set the properties of the StateProps object using the provided inputs.
         
-        Set the properties of the StatePROPS object using the provided inputs.
-        This method will be removed in version 2.0.0.
-        
+        Note:
+            The direct property setting interface is generally more convenient:
+            
         Instead of:
-            state.set(['T', 293.15, 'P', 101325, 'water'])
+            state.set(['T', 293.15, 'P', 101325, 'Water'])
         Use:
-            state.fluid = 'water'
+            state.fluid = 'Water'
             state.tempk = 293.15
             state.press = 101325
         
         Args:
-            props (list): Property inputs for PropsSI in the format
+            props (list): Property inputs for PropsSI
                 [prop1_name, prop1_value, prop2_name, prop2_value, fluid_name]
-        
+                
         Returns:
-            StatePROPS: The current object for method chaining.
+            StateProps: The current object for method chaining.
         """
-        warnings.warn(
-            "The set() method is deprecated and will be removed in version 2.0.0. "
-            "Use direct property setting instead (e.g., state.fluid = 'fluid_name', state.tempk = value).",
-            DeprecationWarning,
-            stacklevel=2
-        )
-        
         # Extract and set fluid name first (last element of props)
         if len(props) >= 5:  # At least 2 properties (4 elements) plus fluid
             self.fluid = props[-1]
