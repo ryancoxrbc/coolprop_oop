@@ -742,7 +742,7 @@ class StateHA:
             # Re-raise with the CoolProp error message for better explanation
             raise ValueError(f"Invalid state: {str(e)}") from None
 
-class StatePROPS:
+class StateProps:
     """
     A class representing the thermodynamic state of a pure fluid.
     
@@ -751,7 +751,7 @@ class StatePROPS:
     for easy access.
     
     Important:
-        For a StatePROPS object to be fully defined, you must:
+        For a StateProps object to be fully defined, you must:
         1. Set the fluid type with state.fluid = 'fluid_name'
         2. Set exactly 2 independent thermodynamic properties
     
@@ -769,7 +769,7 @@ class StatePROPS:
         
     Example:
         >>> # Create state for water at 25°C, 1 atm
-        >>> state = StatePROPS()
+        >>> state = StateProps()
         >>> state.fluid = 'Water'
         >>> state.tempc = 25
         >>> state.press = 101325
@@ -791,18 +791,17 @@ class StatePROPS:
     
     def __init__(self, props=None, fluid=None):
         """
-        Initialize a StatePROPS object for pure fluid properties.
+        Initialize a StateProps object for pure fluid properties.
         
         Args:
-            props (list, optional): DEPRECATED. Property inputs for PropsSI.
-                While still supported, direct property setting is preferred.
+            props (list, optional): Property inputs for PropsSI.
                 [prop1_name, prop1_value, prop2_name, prop2_value, fluid_name]
             fluid (str, optional): The working fluid name. If provided, sets the fluid immediately.
-                This is the recommended way to initialize a StatePROPS object.
+                This is the recommended way to initialize a StateProps object.
         
         Example:
             >>> # Recommended initialization
-            >>> state = StatePROPS(fluid='Water')
+            >>> state = StateProps(fluid='Water')
             >>> state.tempc = 25
             >>> state.press = 101325
         """
@@ -827,7 +826,7 @@ class StatePROPS:
             warnings.warn(
                 "Initializing with props is deprecated and will be removed in version 2.0.0. "
                 "Use direct property setting instead:\n"
-                "    state = StatePROPS(fluid='water')\n"
+                "    state = StateProps(fluid='water')\n"
                 "    state.tempk = value\n"
                 "    state.press = value",
                 DeprecationWarning,
@@ -847,7 +846,7 @@ class StatePROPS:
     @state_setter_PROPS
     @validate_input_props
     def tempk(self, value):
-        self._tempk = value
+        self._tempk = float(value)
 
     @property
     def tempc(self):
@@ -861,7 +860,7 @@ class StatePROPS:
     @state_setter_PROPS
     @validate_input_props
     def tempc(self, value):
-        self._tempc = value
+        self._tempc = float(value)
         self._tempk = value + 273.15
 
     @property
@@ -1061,7 +1060,7 @@ class StatePROPS:
         """
         DEPRECATED: Direct property setting is now preferred over the set method.
         
-        Set the properties of the StatePROPS object using the provided inputs.
+        Set the properties of the StateProps object using the provided inputs.
         This method will be removed in version 2.0.0.
         
         Instead of:
@@ -1076,7 +1075,7 @@ class StatePROPS:
                 [prop1_name, prop1_value, prop2_name, prop2_value, fluid_name]
         
         Returns:
-            StatePROPS: The current object for method chaining.
+            StateProps: The current object for method chaining.
         """
         warnings.warn(
             "The set() method is deprecated and will be removed in version 2.0.0. "

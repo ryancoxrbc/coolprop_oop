@@ -3,7 +3,7 @@ CoolProp-OOP: An object-oriented wrapper for CoolProp thermodynamic properties.
 
 This package provides an intuitive, object-oriented interface to CoolProp's thermodynamic
 property calculations for both humid air and pure fluids. It simplifies property access
-and calculations through two main classes: StateHA for humid air properties and StatePROPS
+and calculations through two main classes: StateHA for humid air properties and StateProps
 for pure fluid properties.
 
 Features:
@@ -16,7 +16,7 @@ Features:
     - Consistent unit system (SI units)
 
 Example Usage:
-    >>> from coolprop_oop import StateHA, StatePROPS
+    >>> from coolprop_oop import StateHA, StateProps
     
     # Humid Air Example (20°C, 1 atm, 50% RH)
     >>> state = StateHA()
@@ -27,14 +27,14 @@ Example Usage:
     20.0°C, 50% RH, w=0.007295 kg/kg
     
     # Pure Fluid Example (Water at 100°C, 1 atm)
-    >>> water = StatePROPS(fluid='Water') 
+    >>> water = StateProps(fluid='Water') 
     >>> water.tempc = 100       # Temperature in °C
     >>> water.press = 101325    # Pressure in Pa
     >>> print(f"{water.tempc:.1f}°C, {water.press/1e5:.2f} bar, ρ={water.dens:.1f} kg/m³")
     100.0°C, 1.01 bar, ρ=958.4 kg/m³
 
     # Setting derived properties directly
-    >>> water2 = StatePROPS(fluid='Water')
+    >>> water2 = StateProps(fluid='Water')
     >>> water2.press = 101325   # Pressure in Pa
     >>> water2.enthalpy = 2000000  # Enthalpy in J/kg
     >>> print(f"Temperature: {water2.tempc:.1f}°C, Quality: {water2.quality:.3f}")
@@ -42,7 +42,7 @@ Example Usage:
 For more examples, see the examples directory in the package repository.
 """
 
-from .coolprop_oop import StateHA, StatePROPS
+from .coolprop_oop import StateHA, StateProps
 
-__version__ = "1.2.0"
-__all__ = ['StateHA', 'StatePROPS'] 
+__version__ = "1.3.0"
+__all__ = ['StateHA', 'StateProps'] 
