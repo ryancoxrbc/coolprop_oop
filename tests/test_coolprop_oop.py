@@ -363,7 +363,7 @@ class TestStateProps(unittest.TestCase):
         state2 = StateProps(fluid='Water')
         state2.tempc = 99.9  # Just below boiling at 1 atm
         state2.press = 101325
-        self.assertEqual(state2.quality, 0.0)  # Saturated liquid
+        self.assertEqual(state2.quality, -1.0)  # Subcooled liquid in CoolProp's model
         
         state3 = StateProps(fluid='Water')
         state3.quality = 0.5  # 50% quality

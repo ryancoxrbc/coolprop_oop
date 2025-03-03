@@ -484,6 +484,11 @@ class StateHA:
     @state_setter_ha
     @validate_input_ha
     def vol(self, value):
+        if value <= 0:
+            raise ValueError("Specific volume must be positive")
+        if value > 1000:  # Very high specific volume
+            raise ValueError("Specific volume exceeding reasonable range (> 1000 m³/kg)")
+        # Store the volume value
         self._vol = value
 
     @property
@@ -749,6 +754,7 @@ class StateProps:
         quality (float): Vapor quality (0-1), or None if not in two-phase region
         cp (float): Specific heat capacity at constant pressure in J/kg-K
         cv (float): Specific heat capacity at constant volume in J/kg-K
+        vol (float): Specific volume in m³/kg (reciprocal of density)
         fluid (str): The working fluid name (must be set before other properties)
         
     Example:
@@ -829,7 +835,7 @@ class StateProps:
             return self._tempc
         if 'tempk' in self._constraints_set:
             return self._tempk - 273.15
-        return self.tempk - 273.15 if self.tempk is not None else None
+        return self.tempk - 273.15
 
     @tempc.setter
     @state_setter_PROPS
@@ -938,6 +944,29 @@ class StateProps:
     @validate_input_props
     def cv(self, value):
         self._cv = value
+
+    @property
+    def vol(self):
+        """
+        Get the specific volume in m³/kg.
+        
+        Returns:
+            float: The specific volume (1/density) in m³/kg, or None if density isn't available.
+        """
+        if self.dens is not None:
+            return 1.0 / self.dens
+        return None
+    
+    @vol.setter
+    @state_setter_PROPS
+    @validate_input_props
+    def vol(self, value):
+        if value <= 0:
+            raise ValueError("Specific volume must be positive")
+        if value > 1000:  # Very high specific volume
+            raise ValueError("Specific volume exceeding reasonable range (> 1000 m³/kg)")
+        # Set density to 1/volume
+        self._dens = 1.0 / value
 
     @property
     def constraints(self):
