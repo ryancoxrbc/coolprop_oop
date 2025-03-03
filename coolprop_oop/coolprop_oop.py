@@ -337,18 +337,20 @@ class StateHA:
         """
         Initialize a StateHA object for humid air properties.
         
-        Note:
-            While passing props at initialization is still supported for backwards compatibility,
-            it is recommended to set properties individually for better performance:
-                state = StateHA()
-                state.tempk = 293.15
-                state.press = 101325
-                state.relhum = 0.5
-        
         Args:
-            props (list, optional): DEPRECATED. Property inputs for HAPropsSI.
-                While still supported, direct property setting is preferred.
+            props (list, optional): Property inputs for HAPropsSI.
                 [prop1_name, prop1_value, prop2_name, prop2_value, prop3_name, prop3_value]
+                This format follows the HAPropsSI's parameter order.
+        
+        Example:
+            >>> # Create state at 25°C, 1 atm, 60% RH
+            >>> state = StateHA(['P', 101325, 'T', 298.15, 'R', 0.6])
+            
+            >>> # Alternatively, set properties directly (recommended)
+            >>> state = StateHA()
+            >>> state.press = 101325
+            >>> state.tempk = 298.15
+            >>> state.relhum = 0.6
         """
         self._tempk = None
         self._tempc = None
@@ -369,16 +371,6 @@ class StateHA:
         self._constraints_set = set()
         
         if props is not None:
-            warnings.warn(
-                "Initializing with props is deprecated and will be removed in version 2.0.0. "
-                "Use direct property setting instead:\n"
-                "    state = StateHA()\n"
-                "    state.tempk = value\n"
-                "    state.press = value\n"
-                "    state.relhum = value",
-                DeprecationWarning,
-                stacklevel=2
-            )
             self.set(props)
 
     @property
@@ -610,11 +602,11 @@ class StateHA:
 
     def set(self, props):
         """
-        DEPRECATED: Direct property setting is now preferred over the set method.
-        
         Set the properties of the StateHA object using the provided inputs.
-        This method will be removed in version 2.0.0.
         
+        Note:
+            The direct property setting interface is generally more convenient:
+            
         Instead of:
             state.set(['T', 293.15, 'P', 101325, 'R', 0.5])
         Use:
@@ -629,14 +621,6 @@ class StateHA:
         Returns:
             StateHA: The current object for method chaining.
         """
-        warnings.warn(
-            "The set() method is deprecated and will be removed in version 2.0.0. "
-            "Use direct property setting instead (e.g., state.tempk = value).",
-            DeprecationWarning,
-            stacklevel=2
-        )
-        
-        self.props = props
         # Map CoolProp properties to our setter methods
         prop_map = {
             'T': 'tempk',
@@ -823,15 +807,6 @@ class StateProps:
             self.fluid = fluid
         
         if props is not None:
-            warnings.warn(
-                "Initializing with props is deprecated and will be removed in version 2.0.0. "
-                "Use direct property setting instead:\n"
-                "    state = StateProps(fluid='water')\n"
-                "    state.tempk = value\n"
-                "    state.press = value",
-                DeprecationWarning,
-                stacklevel=2
-            )
             self.set(props)
 
     @property
@@ -1058,32 +1033,25 @@ class StateProps:
 
     def set(self, props):
         """
-        DEPRECATED: Direct property setting is now preferred over the set method.
-        
         Set the properties of the StateProps object using the provided inputs.
-        This method will be removed in version 2.0.0.
         
+        Note:
+            The direct property setting interface is generally more convenient:
+            
         Instead of:
-            state.set(['T', 293.15, 'P', 101325, 'water'])
+            state.set(['T', 293.15, 'P', 101325, 'Water'])
         Use:
-            state.fluid = 'water'
+            state.fluid = 'Water'
             state.tempk = 293.15
             state.press = 101325
         
         Args:
-            props (list): Property inputs for PropsSI in the format
+            props (list): Property inputs for PropsSI
                 [prop1_name, prop1_value, prop2_name, prop2_value, fluid_name]
-        
+                
         Returns:
             StateProps: The current object for method chaining.
         """
-        warnings.warn(
-            "The set() method is deprecated and will be removed in version 2.0.0. "
-            "Use direct property setting instead (e.g., state.fluid = 'fluid_name', state.tempk = value).",
-            DeprecationWarning,
-            stacklevel=2
-        )
-        
         # Extract and set fluid name first (last element of props)
         if len(props) >= 5:  # At least 2 properties (4 elements) plus fluid
             self.fluid = props[-1]

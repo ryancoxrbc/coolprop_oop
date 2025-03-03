@@ -5,7 +5,7 @@ CoolProp-OOP Usage Examples
 This file demonstrates the usage of the CoolProp-OOP package for thermodynamic property calculations.
 """
 
-from coolprop_oop import StateHA, StatePROPS
+from coolprop_oop import StateHA, StateProps
 
 def example_humid_air_basic():
     """
@@ -121,12 +121,12 @@ def example_humid_air_error_handling():
 
 def example_pure_fluid_basic():
     """
-    Basic example of using StatePROPS for pure fluid properties
+    Basic example of using StateProps for pure fluid properties
     """
     print("\n=== Basic Pure Fluid Properties (Water) ===")
     
     # Create a state for water at 100°C, 1 atm
-    state = StatePROPS(fluid='Water')  # Set fluid first
+    state = StateProps(fluid='Water')  # Set fluid first
     state.tempc = 100     # Temperature in °C
     state.press = 101325  # Pressure in Pa
     
@@ -157,12 +157,12 @@ def example_pure_fluid_basic():
 
 def example_refrigerant_properties():
     """
-    Example of using StatePROPS for refrigerant properties
+    Example of using StateProps for refrigerant properties
     """
     print("\n=== Refrigerant Properties (R134a) ===")
     
     # Create a state for R134a at 25°C, 10 bar
-    r134a = StatePROPS(fluid='R134a')
+    r134a = StateProps(fluid='R134a')
     r134a.tempc = 25        # Temperature in °C
     r134a.press = 1000000   # Pressure in Pa (10 bar)
     
@@ -191,7 +191,7 @@ def example_two_phase_properties():
     print("\n=== Two-Phase Properties (Saturated Steam) ===")
     
     # Create a state for saturated steam (quality = 1)
-    steam = StatePROPS(fluid='Water')
+    steam = StateProps(fluid='Water')
     steam.tempc = 100    # Temperature in °C
     steam.quality = 1    # Saturated vapor
     
@@ -203,7 +203,7 @@ def example_two_phase_properties():
     print(f"Quality: {steam.quality:.2f}")
     
     # Create a state for saturated liquid (quality = 0)
-    water = StatePROPS(fluid='Water')
+    water = StateProps(fluid='Water')
     water.tempc = 100    # Temperature in °C
     water.quality = 0    # Saturated liquid
     
@@ -226,7 +226,7 @@ def example_pure_fluid_error_handling():
     
     # Example of setting fluid after properties
     try:
-        state = StatePROPS()
+        state = StateProps()
         state.tempc = 25      # Won't work - fluid not set
         state.press = 101325  # Won't work - fluid not set
     except ValueError as e:
@@ -234,7 +234,7 @@ def example_pure_fluid_error_handling():
     
     # Example of over-constraining a pure fluid state
     try:
-        state = StatePROPS(fluid='Water')
+        state = StateProps(fluid='Water')
         state.tempc = 25
         state.press = 101325
         # Pure fluids only allow 2 properties to be set
@@ -244,7 +244,7 @@ def example_pure_fluid_error_handling():
     
     # Example of setting inconsistent properties
     try:
-        state = StatePROPS(fluid='R134a')
+        state = StateProps(fluid='R134a')
         state.tempc = 25
         # Setting quality > 0 at this temperature would be inconsistent with the phase diagram
         state.quality = 0.5
@@ -299,7 +299,7 @@ def example_using_derived_properties():
     print("\n--- Pure Fluid with Enthalpy ---")
     
     # Define water state using enthalpy instead of temperature
-    water = StatePROPS(fluid='Water')
+    water = StateProps(fluid='Water')
     water.press = 200000     # Pressure in Pa (2 bar)
     water.enthalpy = 2675000 # Enthalpy in J/kg
     
@@ -310,7 +310,7 @@ def example_using_derived_properties():
     
     # Define refrigerant state using entropy
     print("\n--- Refrigerant with Entropy ---")
-    r134a = StatePROPS(fluid='R134a')
+    r134a = StateProps(fluid='R134a')
     r134a.press = 500000    # Pressure in Pa (5 bar)
     r134a.entropy = 1600    # Entropy in J/kg-K
     
@@ -323,7 +323,7 @@ def example_using_derived_properties():
     print("\n--- Fluid with Specific Heat Capacity ---")
     try:
         # This might fail depending on the CoolProp implementation
-        fluid = StatePROPS(fluid='Nitrogen')
+        fluid = StateProps(fluid='Nitrogen')
         fluid.press = 101325   # Pressure in Pa
         fluid.cp = 1040        # Specific heat capacity in J/kg-K
         
