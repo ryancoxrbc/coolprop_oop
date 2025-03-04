@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 """
 CoolProp-OOP Usage Examples
-
-from coolprop_oop import StateHA, StateProps
+"""
 
 from coolprop_oop import StateHA, StateProps
 
@@ -49,52 +48,6 @@ def example_humid_air_basic():
     print("New Constraints:")
     print(state.constraints())
 
-def example_humid_air_alternative_properties():
-    """
-    Example of using different combinations of properties to define a humid air state
-    """
-    print("\n=== Alternative Humid Air Property Combinations ===")
-    
-    # Create a state using wet bulb temperature instead of relative humidity
-    state = StateHA()
-    state.press = 101325        # Pressure in Pa
-    state.tempc = 25            # Temperature in °C
-    state.wetbulb = 273.15 + 18 # Wet bulb temperature in K
-    
-    print("State defined with temperature, pressure, and wet bulb temperature:")
-    print(f"Temperature: {state.tempc:.2f}°C")
-    print(f"Pressure: {state.press:.0f} Pa")
-    print(f"Wet Bulb Temperature: {state.wetbulb - 273.15:.2f}°C")
-    print(f"Calculated Relative Humidity: {state.relhum * 100:.1f}%")
-    print(f"Calculated Humidity Ratio: {state.humrat:.6f} kg/kg")
-    
-    # Create a state using humidity ratio instead of relative humidity
-    state2 = StateHA()
-    state2.press = 101325  # Pressure in Pa
-    state2.tempc = 25      # Temperature in °C
-    state2.humrat = 0.010  # Humidity ratio in kg/kg
-    
-    print("\nState defined with temperature, pressure, and humidity ratio:")
-    print(f"Temperature: {state2.tempc:.2f}°C")
-    print(f"Pressure: {state2.press:.0f} Pa")
-    print(f"Humidity Ratio: {state2.humrat:.6f} kg/kg")
-    print(f"Calculated Relative Humidity: {state2.relhum * 100:.1f}%")
-    
-    # Create a state using dew point temperature
-    state3 = StateHA()
-    state3.press = 101325        # Pressure in Pa
-    state3.tempc = 25            # Temperature in °C
-    state3.dewpoint = 273.15 + 15 # Dew point temperature in K
-    
-    print("\nState defined with temperature, pressure, and dew point:")
-    print(f"Temperature: {state3.tempc:.2f}°C")
-    print(f"Pressure: {state3.press:.0f} Pa")
-    print(f"Dew Point: {state3.dewpoint - 273.15:.2f}°C")
-    print(f"Calculated Relative Humidity: {state3.relhum * 100:.1f}%")
-    
-    # Show which properties are constraining the state
-    print(f"\nConstraints for the last state: {state3.constraints}")
-
 def example_humid_air_error_handling():
     """
     Example of error handling and input validation in humid air calculations
@@ -103,36 +56,27 @@ def example_humid_air_error_handling():
     
     # Example of trying to set an invalid temperature (below absolute zero)
     try:
-        state = StateHA()
-        state.tempc = -300
+        state = StateHA('T', -300, 'P', 101325, 'R', 0.5)
     except ValueError as e:
         print(f"Error setting invalid temperature: {e}")
     
     # Example of trying to set an invalid relative humidity (greater than 1)
     try:
-        state = StateHA()
-        state.relhum = 1.5
+        state = StateHA('T', 293.15, 'P', 101325, 'R', 1.5)
     except ValueError as e:
         print(f"Error setting invalid relative humidity: {e}")
     
-    # Example of trying to over-constrain the system
+    # Example of trying to create a state with too many constraints
     try:
-        state = StateHA()
-        state.tempc = 25
-        state.press = 101325
-        state.relhum = 0.5
-        # This would be a 4th constraint, which is not allowed
-        state.wetbulb = 295
-    except ValueError as e:
+        # Attempt to create a state with 4 constraints (only 3 allowed)
+        StateHA('T', 298.15, 'P', 101325, 'R', 0.5, 'B', 290)
+    except Exception as e:
         print(f"Error over-constraining the system: {e}")
     
     # Example of setting inconsistent properties
     try:
-        state = StateHA()
-        state.tempc = 25
-        state.press = 101325
         # Setting a dew point higher than dry bulb is physically impossible
-        state.dewpoint = 303.15  # 30°C dew point, which is > 25°C dry bulb
+        state = StateHA('T', 298.15, 'P', 101325, 'D', 303.15)  # 30°C dew point, which is > 25°C dry bulb
     except ValueError as e:
         print(f"Error setting inconsistent properties: {e}")
 
@@ -190,15 +134,41 @@ def example_pure_fluid_basic():
     except ValueError as e:
         print(f"Quality: Not in two-phase region")
 
-def test_property_info():
+def example_property_info():
+    """
+    Example showing property codes and their meanings
+    """
     print("\n=== Property Information ===")
-    ha = StateHA('T', 293.15, 'P', 101325, 'R', 0.5)
     
-    props = StateProps('T', 373.15, 'P', 101325, 'water')
+    print("Humid Air Property Codes (StateHA):")
+    print("  'T': Dry Bulb Temperature [K]")
+    print("  'B': Wet bulb temperature [K]")
+    print("  'D': Dew point temperature [K]")
+    print("  'P': Pressure [Pa]")
+    print("  'V': Mixture volume [m³/kg dry air]")
+    print("  'R': Relative humidity [0-1]")
+    print("  'W': Humidity ratio [kg water/kg dry air]")
+    print("  'H': Mixture enthalpy [J/kg dry air]")
+    print("  'S': Mixture entropy [J/kg dry air/K]")
+    print("  'C': Mixture specific heat [J/kg dry air/K]")
+    print("  'M': Mixture viscosity [Pa-s]")
+    print("  'K': Mixture thermal conductivity [W/m/K]")
+    
+    print("\nPure Fluid Property Codes (StateProps):")
+    print("  'T': Temperature [K]")
+    print("  'P': Pressure [Pa]")
+    print("  'D': Density [kg/m³]")
+    print("  'H': Specific enthalpy [J/kg]")
+    print("  'S': Specific entropy [J/kg-K]")
+    print("  'Q': Vapor quality [-]")
+    print("  'C': Specific heat capacity at constant pressure [J/kg-K]")
+    print("  'O': Specific heat capacity at constant volume [J/kg-K]")
+    print("  'U': Specific internal energy [J/kg]")
 
 if __name__ == "__main__":
-    print("Testing CoolProp-OOP Package v0.2.0")
-    test_humid_air()
-    test_pure_fluid()
-    test_property_info()
-    print("\nAll tests completed successfully!") 
+    print("Testing CoolProp-OOP Package v2.0.0")
+    example_humid_air_basic()
+    example_humid_air_error_handling()
+    example_pure_fluid_basic()
+    example_property_info()
+    print("\nAll examples completed successfully!") 
