@@ -9,10 +9,11 @@ An object-oriented wrapper for CoolProp thermodynamic properties that makes work
 ## Features
 
 - Object-oriented interface to CoolProp
-- Easy access to common thermodynamic properties
+- Simple property constraint management
 - Support for humid air calculations via `StateHA`
-- Support for pure fluid properties via `StatePROPS`
-- Pythonic API that follows best practices
+- Support for pure fluid properties via `StateProps`
+- Consistent SI unit system
+- Compatible with CoolProp 6.7.0
 
 ## Installation
 
@@ -27,32 +28,81 @@ pip install coolprop-oop
 ```python
 from coolprop_oop import StateHA
 
-# Create a state for humid air
-state = StateHA('P', 101325, 'T', 293.15, 'R', 0.5)
+# Create a state for humid air at 25°C, 1 atm, 60% RH
+state = StateHA('T', 298.15, 'P', 101325, 'R', 0.6)
 
-# Access properties
-print(f"Temperature: {state.get('T') - 273.15}°C")
-print(f"Relative Humidity: {state.get('R') * 100}%")
-print(f"Humidity Ratio: {state.get('W')} kg water / kg dry air")
-print(f"Wet Bulb Temperature: {state.get('B') - 273.15}°C")
-print(f"Dew Point: {state.get('D') - 273.15}°C")
+# Access properties using property codes
+humidity_ratio = state.get('W')
+wet_bulb = state.get('B') - 273.15  # Convert to Celsius
+enthalpy = state.get('H')
+
+# Get multiple properties in one call
+temp, pressure, rel_humidity = state.get('T', 'P', 'R')
+
+# View current constraint values
+constraints = state.constraints()
+print(constraints)  # {'T': 298.15, 'P': 101325, 'R': 0.6}
+
+# Update a constraint
+state.reset('T', 303.15)  # Change temperature to 30°C
+
+# Replace a constraint with a different property
+state.replace('R', 'W', 0.015)  # Replace RH with humidity ratio
 ```
 
 ### Pure Fluid Properties
 
 ```python
-from coolprop_oop import StatePROPS
+from coolprop_oop import StateProps
 
-# Create a state for water
-state = StatePROPS('P', 101325, 'T', 373.15, 'water')
+# Create a state for water at 100°C, 1 atm
+water = StateProps('T', 373.15, 'P', 101325, 'water')
 
-# Access properties
-print(f"Temperature: {state.get('T')}°C")
-print(f"Pressure: {state.get('P')} Pa")
-print(f"Density: {state.get('D')} kg/m³")
-print(f"Enthalpy: {state.get('H')} J/kg")
-print(f"Entropy: {state.get('S')} J/kg-K")
+# Access properties using property codes
+density = water.get('D')
+enthalpy = water.get('H')
+entropy = water.get('S')
+
+# Get multiple properties in one call
+temp, pressure = water.get('T', 'P')
+
+# View current constraint values
+constraints = water.constraints()
+print(constraints)  # {'T': 373.15, 'P': 101325, 'fluid': 'water'}
+
+# Update a constraint
+water.reset('T', 393.15)  # Change temperature to 120°C
+
+# Replace a constraint with a different property
+water.replace('P', 'D', 900.0)  # Replace pressure with density
 ```
+
+### Property Codes (CoolProp 6.7.0)
+
+#### Humid Air Properties (`StateHA`)
+- `'T'`: Dry Bulb Temperature [K]
+- `'B'`: Wet bulb temperature [K]
+- `'D'`: Dew point temperature [K]
+- `'P'`: Pressure [Pa]
+- `'V'`: Mixture volume [m³/kg dry air]
+- `'R'`: Relative humidity [0-1]
+- `'W'`: Humidity ratio [kg water/kg dry air]
+- `'H'`: Mixture enthalpy [J/kg dry air]
+- `'S'`: Mixture entropy [J/kg dry air/K]
+- `'C'`: Mixture specific heat [J/kg dry air/K]
+- `'M'`: Mixture viscosity [Pa-s]
+- `'K'`: Mixture thermal conductivity [W/m/K]
+
+#### Pure Fluid Properties (`StateProps`)
+- `'T'`: Temperature [K]
+- `'P'`: Pressure [Pa]
+- `'D'`: Density [kg/m³]
+- `'H'`: Specific enthalpy [J/kg]
+- `'S'`: Specific entropy [J/kg-K]
+- `'Q'`: Vapor quality [-]
+- `'C'`: Specific heat capacity at constant pressure [J/kg-K]
+- `'O'`: Specific heat capacity at constant volume [J/kg-K]
+- `'U'`: Specific internal energy [J/kg]
 
 ## Contributing
 
