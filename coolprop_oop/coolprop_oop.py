@@ -24,91 +24,113 @@ class StateHA:
     
     Example:
         >>> # Create state at 25°C, 1 atm, 60% RH
-        >>> state = StateHA(['P', 101325, 'T', 298.15, 'R', 0.6])
+        >>> state = StateHA('P', 101325, 'T', 298.15, 'R', 0.6)
         >>> print(f"Humidity ratio: {state.humrat:.4f} kg/kg")
         Humidity ratio: 0.0120 kg/kg
         >>> print(f"Dew point: {state.dewpoint-273.15:.1f}°C")
         Dew point: 16.7°C
     """
-    
-    def __init__(self, props=None):
+
+    def __init__(self, *args):
         """
         Initialize a StateHA object for humid air properties.
         
         Args:
-            props (list, optional): Property inputs for HAPropsSI in the format
-                [prop1_name, prop1_value, prop2_name, prop2_value, prop3_name, prop3_value]
-                where prop_name can be:
-                - 'T': Temperature [K]
-                - 'P': Pressure [Pa]
-                - 'R': Relative humidity [-]
-                - 'W': Humidity ratio [kg/kg]
-                - 'B': Wet bulb temperature [K]
-                - 'D': Dew point temperature [K]
-                If provided, properties are calculated immediately.
+            *args: Six arguments in the order: prop1_name, prop1_value, prop2_name, prop2_value, prop3_name, prop3_value
+                  where prop_name is a CoolProp property code (str) and value is a float.
+                  This format follows the HAPropsSI's parameter order.
         
         Example:
-            >>> state = StateHA(['T', 293.15, 'P', 101325, 'R', 0.5])
+            >>> # Create state at 25°C, 1 atm, 60% RH
+            >>> state = StateHA('P', 101325, 'T', 298.15, 'R', 0.6)
         """
-        self.props = None
-        self.tempk = None
-        self.tempc = None
-        self.press = None
-        self.humrat = None
-        self.wetbulb = None
-        self.relhum = None
-        self.vol = None
-        self.enthalpy = None
-        self.entropy = None
-        self.dewpoint = None
-        self.density = None
-        self.cp = None
+        self._constraints = {}
         
-        if props is not None:
-            self.set(props)
+        if args:
+            if len(args) != 6:
+                raise ValueError("StateHA requires exactly 6 arguments: prop1_name, prop1_value, prop2_name, prop2_value, prop3_name, prop3_value")
+            
+            # Check that odd-indexed arguments are strings (property codes)
+            if not all(isinstance(args[i], str) for i in range(0, 6, 2)):
+                raise ValueError("Property names must be strings")
+            
+            # Check that even-indexed arguments are numeric (property values)
+            if not all(isinstance(args[i], (int, float)) for i in range(1, 6, 2)):
+                raise ValueError("Property values must be numeric")
+            
+            # Store constraints
+            self._constraints[args[0]] = args[1]
+            self._constraints[args[2]] = args[3]
+            self._constraints[args[4]] = args[5]
     
-    def set(self, props):
+    def replace(self, old_prop, new_prop, value):
         """
-        Set the properties of the StateHA object using the provided inputs.
+        Replace one constraint with a new constraint.
         
-        This method calculates all state properties based on the three input properties
-        provided. It uses CoolProp's HAPropsSI function internally.
+        This method updates the state by replacing one constraint with a new one.
         
         Args:
-            props (list): Property inputs for HAPropsSI in the format
-                [prop1_name, prop1_value, prop2_name, prop2_value, prop3_name, prop3_value]
+            old_prop (str): The property code to remove from constraints
+            new_prop (str): The property code to add as a constraint
+            value (float): The value for the new property constraint
         
         Returns:
             StateHA: The current object for method chaining.
         
         Example:
-            >>> state = StateHA()
-            >>> state.set(['T', 293.15, 'P', 101325, 'R', 0.5])
-            >>> print(f"{state.tempc:.1f}°C")
-            20.0°C
+            >>> state = StateHA('T', 293.15, 'P', 101325, 'R', 0.5)
+            >>> state.replace('R', 'W', 0.01)  # Replace RH with humidity ratio
         """
-        self.props = props
-        self.tempk = self.get_prop("T")
-        self.tempc = self.tempk - 273.15
-        self.press = self.get_prop("P")
-        self.humrat = self.get_prop("W")
-        self.wetbulb = self.get_prop("B")
-        self.relhum = self.get_prop("R")
-        self.vol = self.get_prop("V")
-        self.enthalpy = self.get_prop("H")
-        self.entropy = self.get_prop("S")
-        self.dewpoint = self.get_prop("D")
-        self.density = 1/self.vol
-        self.cp = self.get_prop("C")
+        if old_prop not in self._constraints:
+            raise ValueError(f"Property '{old_prop}' is not a current constraint")
+        
+        if not isinstance(new_prop, str):
+            raise ValueError("New property name must be a string")
+            
+        if not isinstance(value, (int, float)):
+            raise ValueError("Property value must be numeric")
+        
+        # Remove old constraint and add new one
+        del self._constraints[old_prop]
+        self._constraints[new_prop] = value
         
         return self
     
-    def get_prop(self, prop):
+    def reset(self, prop, value):
         """
-        Get a specific property using HAPropsSI.
+        Reset a single property constraint to a new value.
+        
+        This method updates an existing property constraint with a new value.
         
         Args:
-            prop (str): The property to retrieve. Valid options include:
+            prop (str): The property code to reset
+            value (float): The new value for the property constraint
+        
+        Returns:
+            StateHA: The current object for method chaining.
+        
+        Example:
+            >>> state = StateHA('T', 293.15, 'P', 101325, 'R', 0.5)
+            >>> state.reset('T', 303.15)  # Update temperature to 30°C
+        """
+        if prop not in self._constraints:
+            raise ValueError(f"Property '{prop}' is not a current constraint")
+        
+        if not isinstance(value, (int, float)):
+            raise ValueError("Property value must be numeric")
+        
+        # Update the constraint value
+        self._constraints[prop] = value
+        
+        return self
+    
+    def get(self, *props):
+        """
+        Get specific properties from the current state.
+        
+        Args:
+            *props: One or more property codes to retrieve.
+                Valid options include:
                 - 'T': Temperature [K]
                 - 'P': Pressure [Pa]
                 - 'W': Humidity ratio [kg/kg]
@@ -121,15 +143,52 @@ class StateHA:
                 - 'C': Specific heat capacity [J/kg-K]
             
         Returns:
-            float: The value of the requested property.
+            float or list: The value(s) of the requested properties. If a single property 
+                  is requested, returns a float; otherwise, returns a list of floats.
         
         Example:
-            >>> state = StateHA(['T', 293.15, 'P', 101325, 'R', 0.5])
-            >>> h = state.get_prop('H')  # Get specific enthalpy
+            >>> state = StateHA('T', 293.15, 'P', 101325, 'R', 0.5)
+            >>> h = state.get('H')  # Get specific enthalpy
+            >>> h, s = state.get('H', 'S')  # Get enthalpy and entropy
         """
-        return HAPropsSI(prop, *self.props)
+        if not props:
+            raise ValueError("At least one property must be specified")
+        
+        if len(self._constraints) != 3:
+            raise ValueError("State is not fully defined. Need exactly 3 constraints.")
+        
+        # Extract constraints for HAPropsSI call
+        props_list = []
+        for k, v in self._constraints.items():
+            props_list.extend([k, v])
+        
+        # Calculate requested properties
+        result = []
+        for prop in props:
+            value = HAPropsSI(prop, *props_list)
+            result.append(value)
+        
+        # Return single value if only one property requested
+        if len(props) == 1:
+            return result[0]
+        
+        return result
 
-class StatePROPS:
+    def constraints(self):
+        """
+        Returns the current set of properties constraining the state with their values.
+        
+        Returns:
+            dict: A dictionary of property names and their values that are currently set as constraints.
+        
+        Example:
+            >>> state = StateHA('T', 293.15, 'P', 101325, 'R', 0.5)
+            >>> state.constraints()
+            {'T': 293.15, 'P': 101325, 'R': 0.5}
+        """
+        return self._constraints.copy()
+
+class StateProps:
     """
     A class representing the thermodynamic state of a pure fluid.
     
@@ -150,87 +209,115 @@ class StatePROPS:
     
     Example:
         >>> # Create state for water at 100°C, 1 atm
-        >>> water = StatePROPS(['P', 101325, 'T', 373.15, 'water'])
+        >>> water = StateProps('P', 101325, 'T', 373.15, 'water')
         >>> print(f"Density: {water.dens:.1f} kg/m³")
         Density: 0.6 kg/m³
-        >>> # Create state for R134a at 25°C, 10 bar
-        >>> r134a = StatePROPS(['P', 1e6, 'T', 298.15, 'R134a'])
-        >>> print(f"Density: {r134a.dens:.1f} kg/m³")
-        Density: 1209.0 kg/m³
     """
     
-    def __init__(self, props=None):
+    def __init__(self, *args):
         """
-        Initialize a StatePROPS object for pure fluid properties.
+        Initialize a StateProps object for pure fluid properties.
         
         Args:
-            props (list, optional): Property inputs for PropsSI in the format
-                [prop1_name, prop1_value, prop2_name, prop2_value, fluid_name]
-                where prop_name can be:
-                - 'T': Temperature [K]
-                - 'P': Pressure [Pa]
-                - 'D': Density [kg/m³]
-                - 'H': Specific enthalpy [J/kg]
-                - 'S': Specific entropy [J/kg-K]
-                - 'Q': Vapor quality [-]
-                If provided, properties are calculated immediately.
+            *args: Five arguments in the order: prop1_name, prop1_value, prop2_name, prop2_value, fluid_name
+                  where prop_name is a CoolProp property code (str), value is a float, and fluid_name is a string.
         
         Example:
-            >>> state = StatePROPS(['T', 373.15, 'P', 101325, 'water'])
+            >>> state = StateProps('T', 373.15, 'P', 101325, 'water')
         """
-        self.props = None
-        self.tempk = None
-        self.tempc = None
-        self.press = None
-        self.dens = None
-        self.enthalpy = None
-        self.entropy = None
-        self.quality = None
-        self.cp = None
-        self.cv = None
+        self._constraints = {}
+        self._fluid = None
         
-        if props is not None:
-            self.set(props)
-    
-    def set(self, props):
+        if args:
+            if len(args) != 5:
+                raise ValueError("StateProps requires exactly 5 arguments: prop1_name, prop1_value, prop2_name, prop2_value, fluid_name")
+            
+            # Check that property names are strings
+            if not isinstance(args[0], str) or not isinstance(args[2], str):
+                raise ValueError("Property names must be strings")
+            
+            # Check that property values are numeric
+            if not isinstance(args[1], (int, float)) or not isinstance(args[3], (int, float)):
+                raise ValueError("Property values must be numeric")
+            
+            # Check that fluid name is a string
+            if not isinstance(args[4], str):
+                raise ValueError("Fluid name must be a string")
+            
+            # Store constraints and fluid
+            self._constraints[args[0]] = args[1]
+            self._constraints[args[2]] = args[3]
+            self._fluid = args[4]
+
+    def replace(self, old_prop, new_prop, value):
         """
-        Set the properties of the StatePROPS object using the provided inputs.
+        Replace one constraint with a new constraint.
         
-        This method calculates all state properties based on the two input properties
-        and fluid name provided. It uses CoolProp's PropsSI function internally.
+        This method updates the state by replacing one constraint with a new one.
         
         Args:
-            props (list): Property inputs for PropsSI in the format
-                [prop1_name, prop1_value, prop2_name, prop2_value, fluid_name]
+            old_prop (str): The property code to remove from constraints
+            new_prop (str): The property code to add as a constraint
+            value (float): The value for the new property constraint
         
         Returns:
-            StatePROPS: The current object for method chaining.
+            StateProps: The current object for method chaining.
         
         Example:
-            >>> state = StatePROPS()
-            >>> state.set(['T', 373.15, 'P', 101325, 'water'])
-            >>> print(f"{state.tempc:.1f}°C")
-            100.0°C
+            >>> state = StateProps('T', 373.15, 'P', 101325, 'water')
+            >>> state.replace('P', 'D', 958.4)  # Replace pressure with density
         """
-        self.props = props
-        self.tempk = self.get_prop("T")
-        self.tempc = self.tempk - 273.15
-        self.press = self.get_prop("P")
-        self.dens = self.get_prop("D")
-        self.enthalpy = self.get_prop("H")
-        self.entropy = self.get_prop("S")
-        self.quality = self.get_prop("Q")
-        self.cp = self.get_prop("C")
-        self.cv = self.get_prop("O")
+        if old_prop not in self._constraints:
+            raise ValueError(f"Property '{old_prop}' is not a current constraint")
+        
+        if not isinstance(new_prop, str):
+            raise ValueError("New property name must be a string")
+            
+        if not isinstance(value, (int, float)):
+            raise ValueError("Property value must be numeric")
+        
+        # Remove old constraint and add new one
+        del self._constraints[old_prop]
+        self._constraints[new_prop] = value
         
         return self
     
-    def get_prop(self, prop):
+    def reset(self, prop, value):
         """
-        Get a specific property using PropsSI.
+        Reset a single property constraint to a new value.
+        
+        This method updates an existing property constraint with a new value,
+        without changing the fluid type.
         
         Args:
-            prop (str): The property to retrieve. Valid options include:
+            prop (str): The property code to reset
+            value (float): The new value for the property constraint
+        
+        Returns:
+            StateProps: The current object for method chaining.
+        
+        Example:
+            >>> state = StateProps('T', 373.15, 'P', 101325, 'water')
+            >>> state.reset('T', 393.15)  # Update temperature to 120°C
+        """
+        if prop not in self._constraints:
+            raise ValueError(f"Property '{prop}' is not a current constraint")
+        
+        if not isinstance(value, (int, float)):
+            raise ValueError("Property value must be numeric")
+        
+        # Update the constraint value
+        self._constraints[prop] = value
+        
+        return self
+    
+    def get(self, *props):
+        """
+        Get specific properties from the current state.
+        
+        Args:
+            *props: One or more property codes to retrieve.
+                Valid options include:
                 - 'T': Temperature [K]
                 - 'P': Pressure [Pa]
                 - 'D': Density [kg/m³]
@@ -241,10 +328,56 @@ class StatePROPS:
                 - 'O': Specific heat capacity at constant volume [J/kg-K]
             
         Returns:
-            float: The value of the requested property.
+            float or list: The value(s) of the requested properties. If a single property 
+                  is requested, returns a float; otherwise, returns a list of floats.
         
         Example:
-            >>> state = StatePROPS(['T', 373.15, 'P', 101325, 'water'])
-            >>> h = state.get_prop('H')  # Get specific enthalpy
+            >>> state = StateProps('T', 373.15, 'P', 101325, 'water')
+            >>> h = state.get('H')  # Get specific enthalpy
+            >>> h, s = state.get('H', 'S')  # Get enthalpy and entropy
         """
-        return PropsSI(prop, *self.props) 
+        if not props:
+            raise ValueError("At least one property must be specified")
+        
+        if len(self._constraints) != 2:
+            raise ValueError("State is not fully defined. Need exactly 2 constraints.")
+        
+        if not self._fluid:
+            raise ValueError("Fluid not specified")
+        
+        # Extract constraints for PropsSI call
+        input_props = []
+        input_vals = []
+        for k, v in self._constraints.items():
+            input_props.append(k)
+            input_vals.append(v)
+        
+        # Calculate requested properties
+        result = []
+        for prop in props:
+            value = PropsSI(prop, input_props[0], input_vals[0], input_props[1], input_vals[1], self._fluid)
+            result.append(value)
+        
+        # Return single value if only one property requested
+        if len(props) == 1:
+            return result[0]
+        
+        return result
+    
+    def constraints(self):
+        """
+        Returns the current set of properties constraining the state with their values.
+        
+        Returns:
+            dict: A dictionary of property names and their values that are currently 
+                 set as constraints, including the fluid name.
+        
+        Example:
+            >>> state = StateProps('T', 373.15, 'P', 101325, 'water')
+            >>> state.constraints()
+            {'T': 373.15, 'P': 101325, 'fluid': 'water'}
+        """
+        constraints = self._constraints.copy()
+        if self._fluid:
+            constraints['fluid'] = self._fluid
+        return constraints
