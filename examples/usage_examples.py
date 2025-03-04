@@ -2,8 +2,7 @@
 """
 CoolProp-OOP Usage Examples
 
-This file demonstrates the usage of the CoolProp-OOP package for thermodynamic property calculations.
-"""
+from coolprop_oop import StateHA, StateProps
 
 from coolprop_oop import StateHA, StateProps
 
@@ -14,23 +13,41 @@ def example_humid_air_basic():
     print("\n=== Basic Humid Air Properties ===")
     
     # Create a state for humid air at 20°C, 1 atm, 50% RH
-    state = StateHA()
-    state.press = 101325    # Pressure in Pa
-    state.tempc = 20        # Temperature in °C
-    state.relhum = 0.5      # Relative humidity (0-1)
+    state = StateHA('T', 293.15, 'P', 101325, 'R', 0.5)
     
-    # Access and print properties
-    print(f"Temperature: {state.tempc:.2f}°C")
-    print(f"Pressure: {state.press:.0f} Pa")
-    print(f"Relative Humidity: {state.relhum * 100:.1f}%")
-    print(f"Humidity Ratio: {state.humrat:.6f} kg/kg")
-    print(f"Wet Bulb Temperature: {state.wetbulb - 273.15:.2f}°C")
-    print(f"Dew Point: {state.dewpoint - 273.15:.2f}°C")
-    print(f"Enthalpy: {state.enthalpy:.2f} J/kg")
-    print(f"Entropy: {state.entropy:.2f} J/kg-K")
-    print(f"Density: {state.density:.4f} kg/m³")
-    print(f"Volume: {state.vol:.4f} m³/kg")
-    print(f"Specific Heat Capacity: {state.cp:.2f} J/kg-K")
+    # Access and print properties using get() method
+    print(f"Temperature: {state.get('T')-273.15:.2f}°C")
+    print(f"Pressure: {state.get('P'):.0f} Pa")
+    print(f"Relative Humidity: {state.get('R') * 100:.1f}%")
+    
+    # Get multiple properties in one call
+    w, b, d = state.get('W', 'B', 'D')
+    print(f"Humidity Ratio: {w:.6f} kg/kg")
+    print(f"Wet Bulb Temperature: {b - 273.15:.2f}°C")
+    print(f"Dew Point: {d - 273.15:.2f}°C")
+    
+    # Get more properties
+    h, s, v = state.get('H', 'S', 'V')
+    print(f"Enthalpy: {h:.2f} J/kg")
+    print(f"Entropy: {s:.2f} J/kg-K")
+    print(f"Specific Volume: {v:.4f} m³/kg")
+    
+    # Show constraints
+    print("\nConstraints:")
+    print(state.constraints())
+    
+    # Update a constraint
+    print("\n--- Updating Temperature to 30°C ---")
+    state.reset('T', 303.15)
+    print(f"New Temperature: {state.get('T')-273.15:.2f}°C")
+    print(f"New Humidity Ratio: {state.get('W'):.6f} kg/kg")
+    
+    # Replace a constraint
+    print("\n--- Replacing Relative Humidity with Humidity Ratio ---")
+    humidity_ratio = state.get('W')
+    state.replace('R', 'W', humidity_ratio)
+    print("New Constraints:")
+    print(state.constraints())
 
 def example_humid_air_alternative_properties():
     """
@@ -126,233 +143,62 @@ def example_pure_fluid_basic():
     print("\n=== Basic Pure Fluid Properties (Water) ===")
     
     # Create a state for water at 100°C, 1 atm
-    state = StateProps(fluid='Water')  # Set fluid first
-    state.tempc = 100     # Temperature in °C
-    state.press = 101325  # Pressure in Pa
+    water = StateProps('T', 373.15, 'P', 101325, 'water')
     
-    # Access and print properties
-    print(f"Temperature: {state.tempc:.2f}°C")
-    print(f"Pressure: {state.press:.0f} Pa")
-    print(f"Density: {state.dens:.2f} kg/m³")
-    print(f"Enthalpy: {state.enthalpy:.2f} J/kg")
-    print(f"Entropy: {state.entropy:.2f} J/kg-K")
-    print(f"Specific Heat Capacity (cp): {state.cp:.2f} J/kg-K")
-    print(f"Specific Heat Capacity (cv): {state.cv:.2f} J/kg-K")
+    # Access and print properties using get() method
+    print(f"Temperature: {water.get('T')-273.15:.2f}°C")
+    print(f"Pressure: {water.get('P'):.0f} Pa")
     
-    # Check quality (None for single-phase states)
-    quality = state.quality
-    if quality is None:
-        print("Quality: Not applicable (not in two-phase region)")
-    else:
-        print(f"Quality: {quality:.4f}")
+    # Get multiple properties in one call
+    d, h, s = water.get('D', 'H', 'S')
+    print(f"Density: {d:.4f} kg/m³")
+    print(f"Enthalpy: {h:.2f} J/kg")
+    print(f"Entropy: {s:.2f} J/kg-K")
     
-    # Display state constraints information
-    constraints = state.constraints
-    print("\n--- State Information ---")
-    print(f"Set properties: {', '.join(constraints['properties'])}")
-    print(f"Fluid: {constraints['fluid']}")
-    print(f"State is complete: {constraints['is_complete']}")
-    print(f"Phase status: {constraints['status']}")
-    print(f"CoolProp edition: {constraints['edition']}")
-
-def example_refrigerant_properties():
-    """
-    Example of using StateProps for refrigerant properties
-    """
-    print("\n=== Refrigerant Properties (R134a) ===")
+    # Get more properties
+    c, o, q = water.get('C', 'O', 'Q')
+    print(f"Specific Heat Capacity (cp): {c:.2f} J/kg-K")
+    print(f"Specific Heat Capacity (cv): {o:.2f} J/kg-K")
+    print(f"Vapor Quality: {q}")
     
-    # Create a state for R134a at 25°C, 10 bar
-    r134a = StateProps(fluid='R134a')
-    r134a.tempc = 25        # Temperature in °C
-    r134a.press = 1000000   # Pressure in Pa (10 bar)
+    # Show constraints
+    print("\nConstraints:")
+    print(water.constraints())
     
-    # Access and print properties
-    print(f"Temperature: {r134a.tempc:.2f}°C")
-    print(f"Pressure: {r134a.press/100000:.2f} bar")
-    print(f"Density: {r134a.dens:.2f} kg/m³")
-    print(f"Enthalpy: {r134a.enthalpy:.2f} J/kg")
-    print(f"Entropy: {r134a.entropy:.2f} J/kg-K")
+    # Update a constraint
+    print("\n--- Updating Temperature to 120°C ---")
+    water.reset('T', 393.15)
+    print(f"New Temperature: {water.get('T')-273.15:.2f}°C")
+    print(f"New Density: {water.get('D'):.4f} kg/m³")
     
-    # Check quality
-    quality = r134a.quality
-    if quality is None:
-        print("Quality: Not applicable (not in two-phase region)")
-    else:
-        print(f"Quality: {quality:.4f}")
+    # Replace a constraint
+    print("\n--- Replacing Pressure with Density ---")
+    density = water.get('D')
+    water.replace('P', 'D', density)
+    print("New Constraints:")
+    print(water.constraints())
     
-    # Display state information
-    constraints = r134a.constraints
-    print(f"Phase status: {constraints['status']}")
-
-def example_two_phase_properties():
-    """
-    Example of working with two-phase (saturated) conditions
-    """
-    print("\n=== Two-Phase Properties (Saturated Steam) ===")
-    
-    # Create a state for saturated steam (quality = 1)
-    steam = StateProps(fluid='Water')
-    steam.tempc = 100    # Temperature in °C
-    steam.quality = 1    # Saturated vapor
-    
-    # Access and print properties
-    print(f"Temperature: {steam.tempc:.2f}°C")
-    print(f"Calculated Pressure: {steam.press:.0f} Pa")
-    print(f"Density: {steam.dens:.4f} kg/m³")
-    print(f"Enthalpy: {steam.enthalpy:.2f} J/kg")
-    print(f"Quality: {steam.quality:.2f}")
-    
-    # Create a state for saturated liquid (quality = 0)
-    water = StateProps(fluid='Water')
-    water.tempc = 100    # Temperature in °C
-    water.quality = 0    # Saturated liquid
-    
-    print("\nSaturated liquid water at same temperature:")
-    print(f"Temperature: {water.tempc:.2f}°C")
-    print(f"Calculated Pressure: {water.press:.0f} Pa")
-    print(f"Density: {water.dens:.2f} kg/m³")
-    print(f"Enthalpy: {water.enthalpy:.2f} J/kg")
-    print(f"Quality: {water.quality:.2f}")
-    
-    # Calculate latent heat of vaporization
-    latent_heat = steam.enthalpy - water.enthalpy
-    print(f"\nLatent heat of vaporization: {latent_heat:.2f} J/kg")
-
-def example_pure_fluid_error_handling():
-    """
-    Example of error handling in pure fluid calculations
-    """
-    print("\n=== Pure Fluid Error Handling and Validation ===")
-    
-    # Example of setting fluid after properties
+    # Test refrigerant properties (R134a at 25°C, 10 bar)
+    print("\n--- Testing Refrigerant (R134a) ---")
+    r134a = StateProps('T', 298.15, 'P', 1000000, 'R134a')
+    print(f"Temperature: {r134a.get('T')-273.15:.2f}°C")
+    print(f"Pressure: {r134a.get('P')/100000:.2f} bar")
+    print(f"Density: {r134a.get('D'):.2f} kg/m³")
     try:
-        state = StateProps()
-        state.tempc = 25      # Won't work - fluid not set
-        state.press = 101325  # Won't work - fluid not set
+        quality = r134a.get('Q')
+        print(f"Quality: {quality}")
     except ValueError as e:
-        print(f"Error: {e}")
-    
-    # Example of over-constraining a pure fluid state
-    try:
-        state = StateProps(fluid='Water')
-        state.tempc = 25
-        state.press = 101325
-        # Pure fluids only allow 2 properties to be set
-        state.dens = 997
-    except ValueError as e:
-        print(f"Error over-constraining the system: {e}")
-    
-    # Example of setting inconsistent properties
-    try:
-        state = StateProps(fluid='R134a')
-        state.tempc = 25
-        # Setting quality > 0 at this temperature would be inconsistent with the phase diagram
-        state.quality = 0.5
-    except ValueError as e:
-        print(f"Error setting inconsistent properties: {e}")
+        print(f"Quality: Not in two-phase region")
 
-def example_using_derived_properties():
-    """
-    Example of using derived properties like enthalpy and entropy to define states
-    """
-    print("\n=== Using Derived Properties as Constraints ===")
+def test_property_info():
+    print("\n=== Property Information ===")
+    ha = StateHA('T', 293.15, 'P', 101325, 'R', 0.5)
     
-    # === Humid Air Examples ===
-    print("\n--- Humid Air with Enthalpy ---")
-    
-    # Define humid air state using enthalpy
-    ha_state = StateHA()
-    ha_state.press = 101325    # Pressure in Pa
-    ha_state.relhum = 0.5      # Relative humidity (0-1)
-    ha_state.enthalpy = 50000  # Enthalpy in J/kg
-    
-    print(f"Set properties: pressure, relative humidity, enthalpy")
-    print(f"Calculated temperature: {ha_state.tempc:.2f}°C")
-    print(f"Calculated humidity ratio: {ha_state.humrat:.6f} kg/kg")
-    print(f"Entropy: {ha_state.entropy:.2f} J/kg-K")
-    
-    # Define humid air state using entropy
-    print("\n--- Humid Air with Entropy ---")
-    ha_state2 = StateHA()
-    ha_state2.press = 101325   # Pressure in Pa
-    ha_state2.tempc = 25       # Temperature in °C
-    ha_state2.entropy = 200    # Entropy in J/kg-K
-    
-    print(f"Set properties: pressure, temperature, entropy")
-    print(f"Calculated relative humidity: {ha_state2.relhum * 100:.1f}%")
-    print(f"Calculated humidity ratio: {ha_state2.humrat:.6f} kg/kg")
-    print(f"Enthalpy: {ha_state2.enthalpy:.2f} J/kg")
-    
-    # Define humid air state using relative humidity (replacing density example)
-    print("\n--- Humid Air with Relative Humidity ---")
-    ha_state3 = StateHA()
-    ha_state3.press = 101325     # Pressure in Pa
-    ha_state3.tempc = 30         # Temperature in °C
-    ha_state3.relhum = 0.6       # Relative humidity (60%)
-    
-    print(f"Set properties: pressure, temperature, relative humidity")
-    print(f"Calculated humidity ratio: {ha_state3.humrat:.6f} kg/kg")
-    print(f"Calculated enthalpy: {ha_state3.enthalpy:.2f} J/kg")
-    print(f"Calculated density: {ha_state3.density:.4f} kg/m³")
-    
-    # === Pure Fluid Examples ===
-    print("\n--- Pure Fluid with Enthalpy ---")
-    
-    # Define water state using enthalpy instead of temperature
-    water = StateProps(fluid='Water')
-    water.press = 200000     # Pressure in Pa (2 bar)
-    water.enthalpy = 2675000 # Enthalpy in J/kg
-    
-    print(f"Set properties for water: pressure, enthalpy")
-    print(f"Calculated temperature: {water.tempc:.2f}°C")
-    print(f"Calculated density: {water.dens:.3f} kg/m³")
-    print(f"Quality: {water.quality:.4f}")  # Should be in two-phase region
-    
-    # Define refrigerant state using entropy
-    print("\n--- Refrigerant with Entropy ---")
-    r134a = StateProps(fluid='R134a')
-    r134a.press = 500000    # Pressure in Pa (5 bar)
-    r134a.entropy = 1600    # Entropy in J/kg-K
-    
-    print(f"Set properties for R134a: pressure, entropy")
-    print(f"Calculated temperature: {r134a.tempc:.2f}°C")
-    print(f"Calculated enthalpy: {r134a.enthalpy:.2f} J/kg")
-    print(f"Quality: {r134a.quality:.4f}")
-    
-    # Using specific heat capacity as a constraint
-    print("\n--- Fluid with Specific Heat Capacity ---")
-    try:
-        # This might fail depending on the CoolProp implementation
-        fluid = StateProps(fluid='Nitrogen')
-        fluid.press = 101325   # Pressure in Pa
-        fluid.cp = 1040        # Specific heat capacity in J/kg-K
-        
-        print(f"Set properties for Nitrogen: pressure, specific heat")
-        print(f"Calculated temperature: {fluid.tempc:.2f}°C")
-        print(f"Calculated enthalpy: {fluid.enthalpy:.2f} J/kg")
-    except ValueError as e:
-        print(f"Note: Some property combinations may not be valid for all fluids")
-        print(f"Error: {e}")
-
-def run_all_examples():
-    """Run all examples"""
-    print("=== CoolProp-OOP Usage Examples ===")
-    
-    # Humid air examples
-    example_humid_air_basic()
-    example_humid_air_alternative_properties()
-    example_humid_air_error_handling()
-    
-    # Pure fluid examples
-    example_pure_fluid_basic()
-    example_refrigerant_properties()
-    example_two_phase_properties()
-    example_pure_fluid_error_handling()
-    
-    # Derived properties examples
-    example_using_derived_properties()
-    
-    print("\n=== All examples completed successfully! ===")
+    props = StateProps('T', 373.15, 'P', 101325, 'water')
 
 if __name__ == "__main__":
-    run_all_examples() 
+    print("Testing CoolProp-OOP Package v0.2.0")
+    test_humid_air()
+    test_pure_fluid()
+    test_property_info()
+    print("\nAll tests completed successfully!") 

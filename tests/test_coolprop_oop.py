@@ -14,414 +14,146 @@ Tests include:
 
 from coolprop_oop import StateHA, StateProps
 import unittest
-import warnings
-
+import numpy as np
+from CoolProp.CoolProp import HAPropsSI, PropsSI
+from coolprop_oop import StateHA, StateProps
 
 class TestStateHA(unittest.TestCase):
-    """Test cases for humid air properties calculator."""
-
-    def setUp(self):
-        # Suppress deprecation warnings during tests
-        warnings.filterwarnings('ignore', category=DeprecationWarning)
-
-    def test_initialization(self):
-        """Verify that StateHA initializes correctly with properties."""
-        state = StateHA()
-        state.press = 101325
-        state.tempk = 293.15
-        state.relhum = 0.5
-        self.assertAlmostEqual(state.relhum, 0.5, places=2)
-        self.assertAlmostEqual(state.tempk, 293.15, places=2)
-        self.assertAlmostEqual(state.press, 101325, places=0)
-
-    def test_input_validation(self):
-        """Test input validation for all properties."""
-        state = StateHA()
+    """Test the StateHA class functionality."""
+    
+    def test_properties_match_coolprop(self):
+        """Test that our StateHA wrapper gives the same results as HAPropsSI."""
+        # Test case: 25°C, 1 atm, 60% RH
+        T, P, R = 298.15, 101325, 0.6
         
-        # Test temperature validation
-        with self.assertRaisesRegex(ValueError, "must be above absolute zero"):
-            state.tempk = -1
-        with self.assertRaisesRegex(ValueError, "exceeding reasonable range"):
-            state.tempk = 500  # > 200°C
+        # Create a state
+        state = StateHA('T', T, 'P', P, 'R', R)
+        
+        # List of properties to test
+        properties = ['W', 'D', 'B', 'H', 'S', 'V', 'C']
+        
+        for prop in properties:
+            # Get property from our wrapper
+            our_value = state.get(prop)
             
-        # Test pressure validation
-        with self.assertRaisesRegex(ValueError, "must be positive"):
-            state.press = -101325
-        with self.assertRaisesRegex(ValueError, "below reasonable range"):
-            state.press = 500  # < 1 kPa
-        with self.assertRaisesRegex(ValueError, "exceeding reasonable range"):
-            state.press = 1e8  # > 100 bar
+            # Get the same property directly from CoolProp
+            coolprop_value = HAPropsSI(prop, 'T', T, 'P', P, 'R', R)
             
-        # Test relative humidity validation
-        with self.assertRaisesRegex(ValueError, "cannot be negative"):
-            state.relhum = -0.1
-        with self.assertRaisesRegex(ValueError, "cannot exceed 1"):
-            state.relhum = 1.5
-            
-        # Test humidity ratio validation
-        with self.assertRaisesRegex(ValueError, "cannot be negative"):
-            state.humrat = -0.001
-        with self.assertRaisesRegex(ValueError, "exceeding reasonable range"):
-            state.humrat = 1.5  # > 1 kg/kg
-            
-        # Test type validation
-        with self.assertRaisesRegex(TypeError, "must be a number"):
-            state.tempk = "293.15"
-
-    def test_error_messages(self):
-        """Test error messages when setting invalid states."""
-        state = StateHA()
-        state.press = 101325
-        state.tempk = 293.15
-        state.relhum = 0.5
+            # Compare values (with small tolerance for floating point differences)
+            self.assertAlmostEqual(our_value, coolprop_value, places=5, 
+                                  msg=f"Property {prop} values differ: {our_value} vs {coolprop_value}")
+    
+    def test_constraint_management(self):
+        """Test constraint management in StateHA."""
+        # Create initial state
+        state = StateHA('T', 293.15, 'P', 101325, 'R', 0.5)
         
-        # Setting a fourth property is now allowed
-        # Try to set an inconsistent state that CoolProp would reject
-        try:
-            state.humrat = 0.5  # Very high humidity ratio that is inconsistent with current state
-            # If no error, check that CoolProp used the new value and adjusted other properties
-            self.assertAlmostEqual(state.humrat, 0.5, places=2)
-        except ValueError as e:
-            # If there's an error, it should be from CoolProp's state validation
-            self.assertIn("Cannot set humrat", str(e))
-            
-        # Try to update with invalid value
-        with self.assertRaisesRegex(ValueError, "cannot be negative"):
-            state.relhum = -0.5
-
-    def test_property_calculation(self):
-        """Verify that calculated properties are physically reasonable."""
-        state = StateHA()
-        state.press = 101325
-        state.tempk = 293.15
-        state.relhum = 0.5
-        # Wet bulb should be lower than dry bulb
-        self.assertLess(state.wetbulb, state.tempk)
-        # Humidity ratio should be positive
-        self.assertGreater(state.humrat, 0)
-        # Enthalpy should be reasonable for room temperature
-        self.assertGreater(state.enthalpy, 20000)
-        self.assertLess(state.enthalpy, 100000)
-
-    def test_underconstraining(self):
-        """Verify behavior when state is underconstrained."""
-        state = StateHA()
-        # No constraints
-        self.assertIsNone(state.enthalpy)
+        # Test constraints method
+        constraints = state.constraints()
+        self.assertEqual(len(constraints), 3)
+        self.assertIn('T', constraints)
+        self.assertIn('P', constraints)
+        self.assertIn('R', constraints)
         
-        # One constraint
-        state.tempk = 293.15
-        self.assertIsNone(state.enthalpy)
-        self.assertEqual(len(state._constraints_set), 1)
+        # Test reset method
+        state.reset('T', 303.15)
+        self.assertEqual(state.get('T'), 303.15)
         
-        # Two constraints
-        state.press = 101325
-        self.assertIsNone(state.enthalpy)
-        self.assertEqual(len(state._constraints_set), 2)
-
-    def test_property_updates(self):
-        """Verify property dependencies when updating values."""
-        state = StateHA()
-        state.tempk = 293.15
-        state.press = 101325
-        state.relhum = 0.5
+        # Test replace method
+        w_value = state.get('W')
+        state.replace('R', 'W', w_value)
+        constraints = state.constraints()
+        self.assertIn('W', constraints)
+        self.assertNotIn('R', constraints)
         
-        # Store initial values
-        initial_humrat = state.humrat
-        initial_enthalpy = state.enthalpy
+    def test_get_multiple_properties(self):
+        """Test getting multiple properties at once."""
+        state = StateHA('T', 293.15, 'P', 101325, 'R', 0.5)
         
-        # Update temperature and check that dependent properties change
-        state.tempk = 303.15
-        self.assertNotEqual(state.humrat, initial_humrat)
-        self.assertNotEqual(state.enthalpy, initial_enthalpy)
-
+        # Get multiple properties
+        t, p, r = state.get('T', 'P', 'R')
+        
+        # Check values
+        self.assertAlmostEqual(t, 293.15)
+        self.assertAlmostEqual(p, 101325)
+        self.assertAlmostEqual(r, 0.5)
 
 class TestStateProps(unittest.TestCase):
-    """Test the StateProps class."""
+    """Test the StateProps class functionality."""
     
-    def setUp(self):
-        """Set up a StateProps object for testing."""
-        warnings.filterwarnings('ignore', category=DeprecationWarning)
-        self.state = StateProps()
-        self.state.fluid = 'Water'
+    def test_properties_match_coolprop(self):
+        """Test that our StateProps wrapper gives the same results as PropsSI."""
+        # Test case: Water at 100°C, 1 atm
+        T, P = 373.15, 101325
+        fluid = 'water'
         
-    def test_init(self):
-        """Verify that StateProps initializes correctly."""
-        self.assertIsInstance(self.state, StateProps)
-        self.assertIsNone(self.state._tempk)
-        self.assertIsNone(self.state._tempc)
-        self.assertEqual(self.state.fluid, 'Water')
-
-    def test_init_fluid(self):
-        """Initialize with fluid parameter."""
-        ref_state = StateProps(fluid='Water')
-        self.assertEqual(ref_state.fluid, 'Water')
+        # Create a state
+        state = StateProps('T', T, 'P', P, fluid)
         
-    def test_initialization(self):
-        """Verify that StateProps initializes correctly."""
-        self.state.press = 101325
-        self.state.tempk = 293.15
-        self.assertAlmostEqual(self.state.tempk, 293.15)
-        self.assertAlmostEqual(self.state.press, 101325)
-
-    def test_input_validation(self):
-        """Test input validation for all properties."""
-        # Test temperature validation
-        with self.assertRaisesRegex(ValueError, "must be above absolute zero"):
-            self.state.tempk = -1
-        with self.assertRaisesRegex(ValueError, "exceeding reasonable range"):
-            self.state.tempk = 2500  # > 1726.85°C
+        # List of properties to test
+        properties = ['D', 'H', 'S', 'C', 'O', 'U']
+        
+        for prop in properties:
+            # Get property from our wrapper
+            our_value = state.get(prop)
             
-        # Test pressure validation
-        with self.assertRaisesRegex(ValueError, "must be positive"):
-            self.state.press = -101325
-        with self.assertRaisesRegex(ValueError, "exceeding reasonable range"):
-            self.state.press = 2e9  # > 10000 bar
+            # Get the same property directly from CoolProp
+            coolprop_value = PropsSI(prop, 'T', T, 'P', P, fluid)
             
-        # Test density validation
-        with self.assertRaisesRegex(ValueError, "must be positive"):
-            self.state.dens = -1000
-        with self.assertRaisesRegex(ValueError, "exceeding reasonable range"):
-            self.state.dens = 2e5  # > 100000 kg/m³
-            
-        # Test quality validation
-        with self.assertRaisesRegex(ValueError, "must be between 0 and 1"):
-            self.state.quality = -0.1
-        with self.assertRaisesRegex(ValueError, "must be between 0 and 1"):
-            self.state.quality = 1.1
-            
-        # Test type validation
-        with self.assertRaisesRegex(TypeError, "must be a number"):
-            self.state.tempk = "293.15"
-
-    def test_error_messages(self):
-        """Test error messages when setting invalid states."""
-        self.state.press = 101325
-        self.state.tempk = 293.15
+            # Compare values (with small tolerance for floating point differences)
+            self.assertAlmostEqual(our_value, coolprop_value, places=5,
+                                  msg=f"Property {prop} values differ: {our_value} vs {coolprop_value}")
+    
+    def test_constraint_management(self):
+        """Test constraint management in StateProps."""
+        # Create initial state
+        state = StateProps('T', 373.15, 'P', 101325, 'water')
         
-        # Setting a third property is now allowed
-        # Try to set an inconsistent state that CoolProp would reject
-        try:
-            self.state.dens = 500  # Inconsistent density for current state
-            # If no error, check that CoolProp used the new value and adjusted other properties
-            self.assertAlmostEqual(self.state.dens, 500, places=0)
-        except ValueError as e:
-            # If there's an error, it should be from CoolProp's state validation
-            self.assertIn("Cannot set dens", str(e))
-            
-        # Try to update with invalid value
-        with self.assertRaisesRegex(ValueError, "must be positive"):
-            self.state.press = -101325
-
-    def test_property_calculation(self):
-        """Verify that calculated properties are physically reasonable."""
-        self.state.press = 101325
-        self.state.tempk = 293.15
-        
-        # Test calculated properties
-        self.assertIsNotNone(self.state.enthalpy)
-        self.assertGreater(self.state.enthalpy, 0)
-        self.assertIsNotNone(self.state.cp)
-        self.assertGreater(self.state.cp, 0)
-        self.assertIsNotNone(self.state.dens)
-        self.assertGreater(self.state.dens, 0)
-        
-        # Quality should be None outside two-phase region
-        self.assertAlmostEqual(self.state.quality, -1.0, places = 1)
-
-    def test_fluid_validation(self):
-        """Test fluid name validation."""
-        with self.assertRaisesRegex(TypeError, "fluid must be a string"):
-            self.state.fluid = 123
-
-    def test_constraints_info(self):
-        """Test the constraints property includes status and edition."""
-        self.state.fluid = 'Water'
-        self.state.tempk = 300
-        self.state.press = 101325
-        
-        constraints = self.state.constraints
-        
-        # Check basic constraint properties
-        self.assertIsInstance(constraints, dict)
-        self.assertIn('properties', constraints)
+        # Test constraints method
+        constraints = state.constraints()
+        self.assertEqual(len(constraints), 3)  # T, P, and fluid
+        self.assertIn('T', constraints)
+        self.assertIn('P', constraints)
         self.assertIn('fluid', constraints)
-        self.assertIn('is_complete', constraints)
         
-        # Check new fields: status and edition
-        self.assertIn('status', constraints)
-        self.assertIn('edition', constraints)
+        # Test reset method
+        state.reset('T', 393.15)
+        self.assertEqual(state.get('T'), 393.15)
         
-        # Verify fluid info
-        self.assertEqual(constraints['fluid'], 'Water')
-        self.assertTrue(constraints['is_complete'])
-        
-        # Reset for next tests
-        self.setUp()
-
-    def test_all_settable_properties(self):
-        """Test that all properties can now be set directly."""
-        # Setup a state to get reference values
-        ref_state = StateProps(fluid='Water')
-        ref_state.tempc = 25
-        ref_state.press = 101325
-        
-        # Try setting cp directly
-        state = StateProps(fluid='Water')
-        state.press = 101325
-        try:
-            state.cp = ref_state.cp
-            # If we get here, cp was set successfully
-            self.assertAlmostEqual(state.cp, ref_state.cp, places=1)
-            # Temperature should be different now
-            self.assertNotEqual(state.tempc, 25)
-        except ValueError:
-            # Some properties may not be directly settable if CoolProp can't solve for them
-            pass
-              
-        # Try setting cv directly
-        state = StateProps(fluid='Water')
-        state.press = 101325
-        try:
-            state.cv = ref_state.cv
-            # If we get here, cv was set successfully
-            self.assertAlmostEqual(state.cv, ref_state.cv, places=1)
-            # Temperature should be different now
-            self.assertNotEqual(state.tempc, 25)
-        except ValueError:
-            # Some properties may not be directly settable if CoolProp can't solve for them
-            pass
-
-    def test_settable_properties(self):
-        """Test that previously calculated-only properties can now be set directly."""
-        # Setup a state with basic properties
-        state = StateProps(fluid='Water')
-        state.tempc = 25
-        state.press = 101325
-        
-        # Get reference values for later comparison
-        initial_enthalpy = state.enthalpy
-        initial_entropy = state.entropy
-        
-        # Create a new state and set properties that were formerly calculated-only
-        state2 = StateProps(fluid='Water')
-        
-        # Test enthalpy can be set
-        state2.press = 101325
-        state2.enthalpy = initial_enthalpy
-        self.assertAlmostEqual(state2.enthalpy, initial_enthalpy, places=0)
-        self.assertAlmostEqual(state2.tempc, 25, places=0)
-        
-        # Reset and test entropy can be set
-        state2 = StateProps(fluid='Water')
-        state2.press = 101325
-        state2.entropy = initial_entropy
-        self.assertAlmostEqual(state2.entropy, initial_entropy, places=0)
-        self.assertAlmostEqual(state2.tempc, 25, places=0)
-
-    def test_set_temperature(self):
-        """Test setting temperature in different units."""
-        state = StateProps(fluid='Water')
-        state.tempc = 25
-        state.press = 101325
-        self.assertAlmostEqual(state.tempc, 25)
-        self.assertAlmostEqual(state.tempk, 298.15)
-
-    def test_set_pressure(self):
-        """Test setting pressure."""
-        state = StateProps(fluid='Water')
-        state.tempc = 25
-        state.press = 101325
-        self.assertAlmostEqual(state.press, 101325)
-
-    def test_consistency(self):
-        """Test internal consistency of calculated properties."""
-        state = StateProps(fluid='Water')
-        state.tempc = 25
-        state.press = 101325
-        self.assertAlmostEqual(1/state.dens, state.vol, places=6)
-
-    def test_different_constraints(self):
-        """Test setting state with different property pairs."""
-        state = StateProps(fluid='Water')
-        state.tempc = 25
-        state.press = 101325
-        ref_density = state.dens
-        
-        state2 = StateProps(fluid='Water')
-        state2.tempc = 25
-        state2.dens = ref_density
-        self.assertAlmostEqual(state2.press, 101325, places=0)
-
-    def test_two_phase_region(self):
-        """Test handling of two-phase region and quality."""
-        state = StateProps(fluid='Water')
-        state.tempc = 120
-        state.press = 101325
-        self.assertEqual(state.quality, -1.0)  # Superheated vapor
-        
-        state2 = StateProps(fluid='Water')
-        state2.tempc = 99.9  # Just below boiling at 1 atm
-        state2.press = 101325
-        self.assertEqual(state2.quality, -1.0)  # Subcooled liquid in CoolProp's model
-        
-        state3 = StateProps(fluid='Water')
-        state3.quality = 0.5  # 50% quality
-        state3.press = 101325
-        self.assertAlmostEqual(state3.tempc, 99.98, places=1)  # Boiling point at 1 atm
-
-
-class TestStateHASettableProperties(unittest.TestCase):
-    """Test cases for newly settable properties in StateHA."""
+        # Test replace method
+        d_value = state.get('D')
+        state.replace('P', 'D', d_value)
+        constraints = state.constraints()
+        self.assertIn('D', constraints)
+        self.assertNotIn('P', constraints)
     
-    def setUp(self):
-        warnings.filterwarnings('ignore', category=DeprecationWarning)
-        self.state = StateHA()
+    def test_refrigerants(self):
+        """Test refrigerant properties."""
+        # Test R134a
+        r134a = StateProps('T', 298.15, 'P', 1000000, 'R134a')
         
-    def test_settable_properties(self):
-        """Test that previously calculated-only properties can now be set directly."""
-        # Set up a state with the three standard properties
-        state = StateHA()
-        state.press = 101325
-        state.tempc = 25
-        state.relhum = 0.5
+        # Check some properties
+        self.assertTrue(r134a.get('D') > 0)
+        self.assertTrue(r134a.get('H') != 0)
         
-        # Get initial values
-        initial_enthalpy = state.enthalpy
-        initial_entropy = state.entropy
-        
-        # Test enthalpy can be set
-        state2 = StateHA()
-        state2.press = 101325
-        state2.tempc = 25
-        state2.enthalpy = initial_enthalpy
-        self.assertAlmostEqual(state2.enthalpy, initial_enthalpy, places=0)
-        
-        # Test entropy can be set
-        state3 = StateHA()
-        state3.press = 101325
-        state3.tempc = 25
-        state3.entropy = initial_entropy
-        self.assertAlmostEqual(state3.entropy, initial_entropy, places=0)
-        
-    def test_all_settable_properties(self):
-        """Test that all properties including cp can now be set directly."""
-        # Set up a state to get reference values
-        ref_state = StateHA()
-        ref_state.press = 101325
-        ref_state.tempc = 25
-        ref_state.relhum = 0.5
-        
-        # Try setting cp directly
-        state = StateHA()
-        state.press = 101325
-        state.tempc = 25
+        # Test some other refrigerants if available
         try:
-            state.cp = ref_state.cp
-            self.assertAlmostEqual(state.cp, ref_state.cp, places=0)
-        except AttributeError:
-            self.fail("cp should be settable")
+            r410a = StateProps('T', 298.15, 'P', 1000000, 'R410A')
+            self.assertTrue(r410a.get('D') > 0)
+        except:
+            pass  # Skip if not available
 
+    def test_get_multiple_properties(self):
+        """Test getting multiple properties at once."""
+        state = StateProps('T', 373.15, 'P', 101325, 'water')
+        
+        # Get multiple properties
+        t, p, d = state.get('T', 'P', 'D')
+        
+        # Check values
+        self.assertAlmostEqual(t, 373.15)
+        self.assertAlmostEqual(p, 101325)
+        self.assertTrue(d > 0)  # Density should be positive
 
 if __name__ == '__main__':
     unittest.main() 
