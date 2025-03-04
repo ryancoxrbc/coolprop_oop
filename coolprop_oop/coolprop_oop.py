@@ -8,26 +8,30 @@ class StateHA:
     for humid air properties. It automatically calculates and caches common properties
     for easy access.
     
-    Attributes:
-        tempk (float): Temperature in Kelvin
-        tempc (float): Temperature in Celsius
-        press (float): Pressure in Pa
-        humrat (float): Humidity ratio in kg/kg
-        wetbulb (float): Wet bulb temperature in K
-        relhum (float): Relative humidity (0-1)
-        vol (float): Specific volume in m³/kg
-        enthalpy (float): Specific enthalpy in J/kg
-        entropy (float): Specific entropy in J/kg-K
-        dewpoint (float): Dew point temperature in K
-        density (float): Density in kg/m³
-        cp (float): Specific heat capacity at constant pressure in J/kg-K
+    Property codes used in this class are compatible with CoolProp version 6.7.0.
+    
+    Property Codes:
+        'T': Dry Bulb Temperature [K]
+        'B': Wet bulb temperature [K]
+        'D': Dew point temperature [K]
+        'P': Pressure [Pa]
+        'V': Mixture volume [m³/kg dry air]
+        'R': Relative humidity [0-1]
+        'W': Humidity ratio [kg water/kg dry air]
+        'H': Mixture enthalpy [J/kg dry air]
+        'S': Mixture entropy [J/kg dry air/K]
+        'C': Mixture specific heat [J/kg dry air/K]
+        'M': Mixture viscosity [Pa-s]
+        'K': Mixture thermal conductivity [W/m/K]
+        
+    Properties are accessed using the get() method rather than direct attributes.
     
     Example:
         >>> # Create state at 25°C, 1 atm, 60% RH
         >>> state = StateHA('P', 101325, 'T', 298.15, 'R', 0.6)
-        >>> print(f"Humidity ratio: {state.humrat:.4f} kg/kg")
+        >>> print(f"Humidity ratio: {state.get('W'):.4f} kg/kg")
         Humidity ratio: 0.0120 kg/kg
-        >>> print(f"Dew point: {state.dewpoint-273.15:.1f}°C")
+        >>> print(f"Dew point: {state.get('D')-273.15:.1f}°C")
         Dew point: 16.7°C
     """
 
@@ -130,17 +134,19 @@ class StateHA:
         
         Args:
             *props: One or more property codes to retrieve.
-                Valid options include:
-                - 'T': Temperature [K]
-                - 'P': Pressure [Pa]
-                - 'W': Humidity ratio [kg/kg]
-                - 'R': Relative humidity [-]
-                - 'B': Wet bulb temperature [K]
-                - 'D': Dew point temperature [K]
-                - 'H': Specific enthalpy [J/kg]
-                - 'S': Specific entropy [J/kg-K]
-                - 'V': Specific volume [m³/kg]
-                - 'C': Specific heat capacity [J/kg-K]
+                Valid options include (compatible with CoolProp 6.7.0):
+                'T': Dry Bulb Temperature [K]
+                'B': Wet bulb temperature [K]
+                'D': Dew point temperature [K]
+                'P': Pressure [Pa]
+                'V': Mixture volume [m³/kg dry air]
+                'R': Relative humidity [0-1]
+                'W': Humidity ratio [kg water/kg dry air]
+                'H': Mixture enthalpy [J/kg dry air]
+                'S': Mixture entropy [J/kg dry air/K]
+                'C': Mixture specific heat [J/kg dry air/K]
+                'M': Mixture viscosity [Pa-s]
+                'K': Mixture thermal conductivity [W/m/K]
             
         Returns:
             float or list: The value(s) of the requested properties. If a single property 
@@ -196,22 +202,27 @@ class StateProps:
     for pure fluid properties. It automatically calculates and caches common properties
     for easy access.
     
-    Attributes:
-        tempk (float): Temperature in Kelvin
-        tempc (float): Temperature in Celsius
-        press (float): Pressure in Pa
-        dens (float): Density in kg/m³
-        enthalpy (float): Specific enthalpy in J/kg
-        entropy (float): Specific entropy in J/kg-K
-        quality (float): Vapor quality (0-1), or None if not in two-phase region
-        cp (float): Specific heat capacity at constant pressure in J/kg-K
-        cv (float): Specific heat capacity at constant volume in J/kg-K
+    Property codes used in this class are compatible with CoolProp version 6.7.0.
+    
+    Property Codes:
+        'T': Temperature [K]
+        'P': Pressure [Pa]
+        'D': Density [kg/m³]
+        'H': Specific enthalpy [J/kg]
+        'S': Specific entropy [J/kg-K]
+        'U': Specific internal energy [J/kg]
+        'Q': Vapor quality [-]
+        'C': Specific heat capacity at constant pressure [J/kg-K]
+        'O': Specific heat capacity at constant volume [J/kg-K]
+    
+    Properties are accessed using the get() method rather than direct attributes.
     
     Example:
         >>> # Create state for water at 100°C, 1 atm
         >>> water = StateProps('P', 101325, 'T', 373.15, 'water')
-        >>> print(f"Density: {water.dens:.1f} kg/m³")
+        >>> print(f"Density: {water.get('D'):.1f} kg/m³")
         Density: 0.6 kg/m³
+        >>> # Get information about available properties
     """
     
     def __init__(self, *args):
@@ -317,7 +328,7 @@ class StateProps:
         
         Args:
             *props: One or more property codes to retrieve.
-                Valid options include:
+                Valid options include (compatible with CoolProp 6.7.0):
                 - 'T': Temperature [K]
                 - 'P': Pressure [Pa]
                 - 'D': Density [kg/m³]

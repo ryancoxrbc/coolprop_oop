@@ -28,14 +28,14 @@ pip install coolprop-oop
 from coolprop_oop import StateHA
 
 # Create a state for humid air
-state = StateHA(['P', 101325, 'T', 293.15, 'R', 0.5])
+state = StateHA('P', 101325, 'T', 293.15, 'R', 0.5)
 
 # Access properties
-print(f"Temperature: {state.tempc}°C")
-print(f"Relative Humidity: {state.relhum * 100}%")
-print(f"Humidity Ratio: {state.humrat} kg/kg")
-print(f"Wet Bulb Temperature: {state.wetbulb - 273.15}°C")
-print(f"Dew Point: {state.dewpoint - 273.15}°C")
+print(f"Temperature: {state.get('T') - 273.15}°C")
+print(f"Relative Humidity: {state.get('R') * 100}%")
+print(f"Humidity Ratio: {state.get('W')} kg water / kg dry air")
+print(f"Wet Bulb Temperature: {state.get('B') - 273.15}°C")
+print(f"Dew Point: {state.get('D') - 273.15}°C")
 ```
 
 ### Pure Fluid Properties
@@ -44,14 +44,14 @@ print(f"Dew Point: {state.dewpoint - 273.15}°C")
 from coolprop_oop import StatePROPS
 
 # Create a state for water
-state = StatePROPS(['P', 101325, 'T', 373.15, 'water'])
+state = StatePROPS('P', 101325, 'T', 373.15, 'water')
 
 # Access properties
-print(f"Temperature: {state.tempc}°C")
-print(f"Pressure: {state.press} Pa")
-print(f"Density: {state.dens} kg/m³")
-print(f"Enthalpy: {state.enthalpy} J/kg")
-print(f"Entropy: {state.entropy} J/kg-K")
+print(f"Temperature: {state.get('T')}°C")
+print(f"Pressure: {state.get('P')} Pa")
+print(f"Density: {state.get('D')} kg/m³")
+print(f"Enthalpy: {state.get('H')} J/kg")
+print(f"Entropy: {state.get('S')} J/kg-K")
 ```
 
 ## Contributing
