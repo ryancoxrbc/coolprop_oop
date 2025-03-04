@@ -12,11 +12,9 @@ Tests include:
 - Error message formatting
 """
 
-from coolprop_oop import StateHA, StateProps
-import unittest
-import numpy as np
 from CoolProp.CoolProp import HAPropsSI, PropsSI
 from coolprop_oop import StateHA, StateProps
+import unittest
 
 class TestStateHA(unittest.TestCase):
     """Test the StateHA class functionality."""
